@@ -87,7 +87,7 @@ FabricaIA/
 
 1. Clone o repositório:
 ```bash
-git clone <repository-url>
+git clone https://github.com/fabricaIA/FabricaIA.git
 cd FabricaIA
 ```
 
