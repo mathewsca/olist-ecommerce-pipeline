@@ -165,7 +165,7 @@ visualizer.plot_correlation_matrix(df)
 ### Erro: "ModuleNotFoundError"
 ```bash
 # Certifique-se de estar no diretório correto
-cd /Users/jarde/workspace/FabricaIA
+cd FabricaIA
 
 # Ative o ambiente virtual
 source venv/bin/activate
@@ -177,7 +177,7 @@ pip install -r requirements.txt
 ### Erro: "PYTHONPATH not set"
 ```bash
 # Linux/Mac
-export PYTHONPATH=/Users/jarde/workspace/FabricaIA:$PYTHONPATH
+export PYTHONPATH=FabricaIA:$PYTHONPATH
 
 # Windows
 set PYTHONPATH=C:\path\to\FabricaIA;%PYTHONPATH%
