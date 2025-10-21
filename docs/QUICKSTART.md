@@ -193,23 +193,3 @@ netstat -ano | findstr :8000  # Windows
 kill -9 <PID>  # Linux/Mac
 taskkill /PID <PID> /F  # Windows
 ```
-
-## 📚 Próximos Passos
-
-1. ✅ **Explorar o notebook de exemplo**: `notebooks/fabricaia_example.ipynb`
-2. ✅ **Executar o pipeline**: `python pipelines/scripts/example_pipeline.py`
-3. ✅ **Iniciar a API**: `uvicorn src.api.main:app --reload`
-4. ✅ **Ler a documentação completa**: `ESTRUTURA_PROJETO.md`
-5. ✅ **Personalizar para seu projeto**: Editar `config/config.yaml`
-
-## 💡 Dicas
-
-- Execute `make help` para ver todos os comandos disponíveis
-- Consulte `DEVELOPMENT.md` para detalhes de desenvolvimento
-- Use `docker-compose` para rodar todos os serviços de uma vez
-
----
-
-**Pronto para começar! 🎉**
-
-Para mais informações, consulte o `README.md` ou abra uma issue no repositório.
