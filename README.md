@@ -278,26 +278,6 @@ Explore os notebooks Jupyter em `notebooks/`:
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
 
-## 📝 Licença
-
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
-
-## 🆘 Suporte
-
-Para suporte e dúvidas:
-
-- Abra uma [issue](https://github.com/your-repo/FabricaIA/issues)
-- Consulte a [documentação](docs/)
-- Entre em contato: [seu-email@exemplo.com]
-
-## 🎯 Roadmap
-
-- [ ] Suporte para deep learning (TensorFlow, PyTorch)
-- [ ] Integração com MLflow para experimentos
-- [ ] Interface web para visualização
-- [ ] Suporte para dados de streaming
-- [ ] Integração com cloud providers (AWS, GCP, Azure)
-
 ---
 
 **FabricaIA** - Construindo o futuro do Machine Learning, um módulo por vez! 🚀
