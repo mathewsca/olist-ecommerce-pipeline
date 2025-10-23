@@ -272,12 +272,8 @@ Explore os notebooks Jupyter em `notebooks/`:
 
 ## 🤝 Contribuição
 
-1. Fork o projeto
+1. Clone o projeto
 2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
 3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
 4. Push para a branch (`git push origin feature/AmazingFeature`)
 5. Abra um Pull Request
-
----
-
-**FabricaIA** - Construindo o futuro do Machine Learning, um módulo por vez! 🚀
