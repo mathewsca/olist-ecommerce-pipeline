@@ -26,6 +26,13 @@ pytest tests/ -v
 python -m ipykernel install --user --name fabricaia
 ```
 
+### (Opcional, recomendado) Pre-commit
+```bash
+pip install pre-commit
+pre-commit install           # instala o hook no repositório
+pre-commit run -a            # executa em todos os arquivos
+```
+
 ## 📊 Uso Básico - Exemplo Completo
 
 ### Pipeline Simples de ML

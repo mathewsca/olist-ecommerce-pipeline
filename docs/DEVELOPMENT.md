@@ -19,6 +19,7 @@ pip install -e .
 
 # Setup pre-commit hooks
 pre-commit install
+pre-commit run -a
 ```
 
 ### Development

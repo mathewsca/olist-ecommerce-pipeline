@@ -110,6 +110,13 @@ pip install -e .
 python -m ipykernel install --user --name fabricaia
 ```
 
+5. (Opcional, recomendado) Configure o pre-commit:
+```bash
+pip install pre-commit
+pre-commit install           # instala o hook no repositório
+pre-commit run -a            # executa em todos os arquivos
+```
+
 ### Instalação com Docker
 
 ```bash
