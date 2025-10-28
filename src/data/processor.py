@@ -116,7 +116,8 @@ class DataProcessor:
     
     def scale_features(self, df: pd.DataFrame, 
                       columns: List[str] = None,
-                      scaler_type: str = 'standard') -> pd.DataFrame:
+                      scaler_type: str = 'standard',
+                      exclude_columns: List[str] = None) -> pd.DataFrame:
         """
         Scale numerical features.
         
@@ -133,12 +134,21 @@ class DataProcessor:
         if columns is None:
             columns = df_scaled.select_dtypes(include=[np.number]).columns.tolist()
         
+        # Exclude target-like columns from scaling by default
+        default_excludes = {self.target_column} if self.target_column else set()
+        default_excludes.update({
+            'target', 'label', 'y', 'class'
+        })
+        exclude_set = set(exclude_columns or []) | {c for c in default_excludes if c in df_scaled.columns}
+        columns = [c for c in columns if c not in exclude_set]
+        
         if scaler_type == 'standard':
             scaler = StandardScaler()
         else:
             scaler = StandardScaler()  # Default to StandardScaler
         
-        df_scaled[columns] = scaler.fit_transform(df_scaled[columns])
+        if columns:
+            df_scaled[columns] = scaler.fit_transform(df_scaled[columns])
         self.scalers['features'] = scaler
         
         logger.info(f"Feature scaling completed for columns: {columns}")
