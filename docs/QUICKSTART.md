@@ -13,11 +13,17 @@ venv\Scripts\activate     # Windows
 ### 2️⃣ Instalar Dependências
 ```bash
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ### 3️⃣ Verificar Instalação
 ```bash
 pytest tests/ -v
+```
+
+### (Opcional) Jupyter Kernel usando seu venv
+```bash
+python -m ipykernel install --user --name fabricaia
 ```
 
 ## 📊 Uso Básico - Exemplo Completo

@@ -99,9 +99,15 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 ```
 
-3. Instale as dependências:
+3. Instale as dependências e o pacote em modo editável:
 ```bash
 pip install -r requirements.txt
+pip install -e .
+```
+
+4. (Opcional) Configure o kernel do Jupyter apontando para o seu venv:
+```bash
+python -m ipykernel install --user --name fabricaia
 ```
 
 ### Instalação com Docker
@@ -249,7 +255,7 @@ load_data >> preprocess >> train_model
 
 ## 🧪 Testes
 
-Execute a suite de testes:
+Execute a suite de testes (assegure-se de ter instalado com `pip install -e .` ou exporte `PYTHONPATH=.`):
 
 ```bash
 # Testes unitários
