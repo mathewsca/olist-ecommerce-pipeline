@@ -29,17 +29,17 @@ MODELS:
     - "random_forest"
     - "logistic_regression"
     - "svm"
-  
+
   hyperparameters:
     random_forest:
       n_estimators: [100, 200, 300]
       max_depth: [10, 20, None]
       min_samples_split: [2, 5, 10]
-    
+
     logistic_regression:
       C: [0.1, 1, 10]
       penalty: ["l1", "l2"]
-    
+
     svm:
       C: [0.1, 1, 10]
       kernel: ["linear", "rbf"]

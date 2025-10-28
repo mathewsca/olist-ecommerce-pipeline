@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fabricaia"
+name = "{{ cookiecutter.project_slug }}"
 version = "0.1.0"
-description = "FabricaIA - Estrutura de referência para projetos de ML"
+description = "{{ cookiecutter.project_description }}"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">={{ cookiecutter.python_version }}"
 authors = [
-  { name = "FabricaIA Team" }
+  { name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" }
 ]
 license = { text = "MIT" }
 keywords = ["machine-learning", "ml", "data-science", "framework"]

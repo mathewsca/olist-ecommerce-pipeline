@@ -23,23 +23,23 @@ def install_cookiecutter():
 def create_project():
     """Create a new FabricaIA project."""
     install_cookiecutter()
-    
+
     # Get project details from user
     project_name = input("Enter project name: ").strip()
     if not project_name:
         project_name = "my_fabricaia_project"
-    
+
     author_name = input("Enter author name: ").strip()
     if not author_name:
         author_name = "Data Scientist"
-    
+
     author_email = input("Enter author email: ").strip()
     if not author_email:
         author_email = "author@example.com"
-    
+
     # Create project using cookiecutter
     template_path = Path(__file__).parent / "cookiecutter-fabricaia"
-    
+
     cmd = [
         "cookiecutter",
         str(template_path),
@@ -51,16 +51,18 @@ def create_project():
         "include_deep_learning=y",
         "include_api=y",
         "include_airflow=y",
-        "include_notebooks=y"
+        "include_notebooks=y",
     ]
-    
+
     try:
         subprocess.run(cmd, check=True)
         print(f"\n✅ Project '{project_name}' created successfully!")
         print(f"📁 Navigate to the project directory: cd {project_name}")
         print(f"🚀 Install dependencies: pip install -r requirements.txt")
-        print(f"📊 Run example notebook: jupyter notebook notebooks/fabricaia_example.ipynb")
-        
+        print(
+            f"📊 Run example notebook: jupyter notebook notebooks/fabricaia_example.ipynb"
+        )
+
     except subprocess.CalledProcessError as e:
         print(f"❌ Error creating project: {e}")
         sys.exit(1)
