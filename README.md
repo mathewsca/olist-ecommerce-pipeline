@@ -43,6 +43,8 @@ Desenvolver e implementar uma Fábrica de Inteligência Artificial para o Govern
 - **Testado**: Suite completa de testes unitários e de integração
 - **Documentado**: Notebooks Jupyter com exemplos práticos
 
+> Dica: consulte o tutorial do Makefile em `docs/MAKEFILE.md` para conhecer os atalhos de desenvolvimento (instalação, testes, lint, API, Docker, Airflow, etc.).
+
 ## 📁 Estrutura do Projeto
 
 ```

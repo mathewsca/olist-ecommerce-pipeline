@@ -33,6 +33,21 @@ pre-commit install           # instala o hook no repositório
 pre-commit run -a            # executa em todos os arquivos
 ```
 
+## 🧰 Usando o Makefile (atalhos úteis)
+
+Os comandos mais comuns do projeto estão no `Makefile`.
+Veja o tutorial completo em `docs/MAKEFILE.md`.
+
+```bash
+make help          # lista todos os alvos disponíveis
+make setup         # instala deps de dev + pre-commit
+make test          # roda testes com cobertura
+make lint          # flake8 + mypy
+make format        # black + isort (aplica)
+make format-check  # black + isort (verificação)
+make api           # inicia a API com reload
+```
+
 ## 📊 Uso Básico - Exemplo Completo
 
 ### Pipeline Simples de ML
@@ -131,7 +146,7 @@ airflow scheduler              # Terminal 2
 - **`requirements.txt`** - Todas as dependências
 - **`config/config.yaml`** - Configurações do projeto
 - **`Dockerfile`** - Container Docker
-- **`Makefile`** - Comandos úteis
+- **`Makefile`** - Comandos úteis (veja `docs/MAKEFILE.md`)
 - **`notebooks/fabricaia_example.ipynb`** - Exemplo completo
 
 ## 🎯 Casos de Uso

@@ -1,6 +1,6 @@
 # FabricaIA Makefile
 
-.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow
+.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit
 
 help: ## Show this help message
 	@echo "FabricaIA - Available commands:"
@@ -32,6 +32,13 @@ lint: ## Run linting
 format: ## Format code
 	black src/ tests/
 	isort src/ tests/
+
+format-check: ## Check formatting (black/isort) without modifying files
+	black --check src/ tests/
+	isort --check-only src/ tests/
+
+precommit: ## Run all pre-commit hooks on the codebase
+	pre-commit run --all-files
 
 clean: ## Clean up temporary files
 	find . -type f -name "*.pyc" -delete
