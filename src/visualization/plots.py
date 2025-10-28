@@ -132,7 +132,16 @@ class DataVisualizer:
         top_features = importance_df.head(top_n)
         
         plt.figure(figsize=self.figsize)
-        sns.barplot(data=top_features, x='importance', y='feature', palette='viridis')
+        # Add hue and disable legend to comply with seaborn >=0.14 behavior
+        sns.barplot(
+            data=top_features,
+            x='importance',
+            y='feature',
+            hue='feature',
+            dodge=False,
+            legend=False,
+            palette='viridis'
+        )
         plt.title(f'Top {top_n} Feature Importance')
         plt.xlabel('Importance')
         plt.ylabel('Features')
