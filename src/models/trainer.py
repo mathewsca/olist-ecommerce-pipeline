@@ -7,11 +7,12 @@ evaluation, and management.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import joblib
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import (
@@ -23,24 +24,55 @@ from sklearn.metrics import (
 from sklearn.model_selection import GridSearchCV, cross_val_score
 from sklearn.svm import SVC, SVR
 
+from .mlflow_tracker import MLflowTracker
+
 logger = logging.getLogger(__name__)
 
 
 class ModelTrainer:
     """Main class for model training and evaluation."""
 
-    def __init__(self, model_type: str = "classification"):
+    def __init__(
+        self,
+        model_type: str = "classification",
+        use_mlflow: bool = True,
+        config_path: str = "config/config.yaml",
+    ):
         """
         Initialize the model trainer.
 
         Args:
             model_type: Type of problem ('classification' or 'regression')
+            use_mlflow: Whether to use MLflow for tracking
+            config_path: Path to configuration file
         """
         self.model_type = model_type
-        self.models = {}
+        self.models: Dict[str, Any] = {}
         self.best_model = None
         self.best_params = None
-        self.training_history = {}
+        self.training_history: Dict[str, Any] = {}
+        self.use_mlflow = use_mlflow
+        self.mlflow_tracker = None
+
+        # Load MLflow configuration
+        if self.use_mlflow:
+            try:
+                with open(config_path, "r") as f:
+                    config = yaml.safe_load(f)
+                    mlflow_config = config.get("MLFLOW", {})
+                    if mlflow_config.get("enable_tracking", True):
+                        self.mlflow_tracker = MLflowTracker(
+                            tracking_uri=mlflow_config.get(
+                                "tracking_uri", "sqlite:///mlflow.db"
+                            ),
+                            experiment_name=mlflow_config.get(
+                                "experiment_name", "fabricaia_experiments"
+                            ),
+                        )
+                        logger.info("MLflow tracking enabled")
+            except Exception as e:
+                logger.warning(f"Could not initialize MLflow: {e}")
+                self.use_mlflow = False
 
     def get_model(self, algorithm: str, **params):
         """
@@ -76,6 +108,7 @@ class ModelTrainer:
         X_train: pd.DataFrame,
         y_train: pd.Series,
         algorithm: str = "random_forest",
+        run_name: Optional[str] = None,
         **params,
     ) -> Any:
         """
@@ -85,12 +118,27 @@ class ModelTrainer:
             X_train: Training features
             y_train: Training target
             algorithm: Algorithm to use
+            run_name: Name for MLflow run
             **params: Model parameters
 
         Returns:
             Trained model
         """
+        # Start MLflow run if enabled
+        if self.mlflow_tracker and run_name:
+            self.mlflow_tracker.start_run(
+                run_name=run_name, tags={"model_type": self.model_type}
+            )
+
         model = self.get_model(algorithm, **params)
+
+        # Log parameters to MLflow
+        if self.mlflow_tracker:
+            mlflow_params = {"algorithm": algorithm, **params}
+            self.mlflow_tracker.log_params(mlflow_params)
+            self.mlflow_tracker.log_params(
+                {"n_samples": len(X_train), "n_features": X_train.shape[1]}
+            )
 
         logger.info(f"Training {algorithm} model...")
         model.fit(X_train, y_train)
@@ -124,12 +172,37 @@ class ModelTrainer:
                 ),
                 "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
             }
+
+            # Log metrics to MLflow
+            if self.mlflow_tracker:
+                mlflow_metrics = {"test_accuracy": metrics["accuracy"]}
+                # Extract additional metrics from classification report
+                if "1" in metrics["classification_report"]:
+                    report = metrics["classification_report"]["1"]
+                    mlflow_metrics.update(
+                        {
+                            "precision": report.get("precision", 0),
+                            "recall": report.get("recall", 0),
+                            "f1_score": report.get("f1-score", 0),
+                        }
+                    )
+                self.mlflow_tracker.log_metrics(mlflow_metrics)
         else:  # regression
             metrics = {
                 "r2_score": r2_score(y_test, y_pred),
                 "mse": mean_squared_error(y_test, y_pred),
                 "rmse": np.sqrt(mean_squared_error(y_test, y_pred)),
             }
+
+            # Log metrics to MLflow
+            if self.mlflow_tracker:
+                self.mlflow_tracker.log_metrics(
+                    {
+                        "test_r2_score": metrics["r2_score"],
+                        "test_mse": metrics["mse"],
+                        "test_rmse": metrics["rmse"],
+                    }
+                )
 
         logger.info(f"Model evaluation completed. Metrics: {metrics}")
         return metrics
@@ -198,22 +271,44 @@ class ModelTrainer:
         self.best_model = grid_search.best_estimator_
         self.best_params = grid_search.best_params_
 
+        # Log hyperparameter tuning results to MLflow
+        if self.mlflow_tracker:
+            self.mlflow_tracker.log_params({"best_params": str(self.best_params)})
+            self.mlflow_tracker.log_metrics({"best_cv_score": grid_search.best_score_})
+            # Log relevant metrics from cv_results_
+            cv_metrics = {}
+            for metric, value in grid_search.cv_results_.items():
+                if metric.startswith("mean_test") or metric.startswith("std_test"):
+                    if isinstance(value, (int, float)):
+                        cv_metrics[metric] = value
+                    elif isinstance(value, np.ndarray):
+                        cv_metrics[metric] = value[0] if len(value) > 0 else 0
+            if cv_metrics:
+                self.mlflow_tracker.log_metrics(cv_metrics)
+
         logger.info(f"Best parameters: {self.best_params}")
         logger.info(f"Best score: {grid_search.best_score_:.4f}")
 
         return self.best_model
 
-    def save_model(self, model: Any, file_path: str) -> None:
+    def save_model(
+        self, model: Any, file_path: str, artifact_path: str = "model"
+    ) -> None:
         """
-        Save trained model to disk.
+        Save trained model to disk and MLflow.
 
         Args:
             model: Trained model
             file_path: Path to save the model
+            artifact_path: Path within MLflow run where the model should be logged
         """
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(model, file_path)
         logger.info(f"Model saved to {file_path}")
+
+        # Log model to MLflow
+        if self.mlflow_tracker:
+            self.mlflow_tracker.log_model(model, artifact_path=artifact_path)
 
     def load_model(self, file_path: str) -> Any:
         """
@@ -263,3 +358,11 @@ class ModelTrainer:
         probabilities = model.predict_proba(X)
         logger.info(f"Probabilities generated for {len(X)} samples")
         return probabilities
+
+    def end_run(self):
+        """
+        End the current MLflow run.
+        """
+        if self.mlflow_tracker:
+            self.mlflow_tracker.end_run()
+            logger.info("Ended MLflow run")

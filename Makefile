@@ -1,6 +1,6 @@
 # FabricaIA Makefile
 
-.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit
+.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit mlflow-server mlflow-ui
 
 help: ## Show this help message
 	@echo "FabricaIA - Available commands:"
@@ -82,6 +82,12 @@ airflow-scheduler: ## Start Airflow scheduler
 	airflow scheduler
 
 airflow: airflow-init airflow-webserver ## Start Airflow (init + webserver)
+
+mlflow-server: ## Start MLflow server
+	mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
+
+mlflow-ui: ## Start MLflow UI (alternative to server)
+	mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
 
 notebook: ## Run example notebook
 	jupyter nbconvert --execute --to notebook notebooks/fabricaia_example.ipynb

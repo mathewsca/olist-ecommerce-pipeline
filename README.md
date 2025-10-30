@@ -157,17 +157,30 @@ df_scaled = processor.scale_features(df_encoded)
 ```python
 from src.models.trainer import ModelTrainer
 
-# Inicializar trainer
+# Inicializar trainer (com MLflow habilitado por padrão)
 trainer = ModelTrainer(model_type='classification')
 
 # Dividir dados
 X_train, X_test, y_train, y_test = processor.split_data(df_scaled, 'target')
 
-# Treinar modelo
-model = trainer.train_model(X_train, y_train, 'random_forest')
+# Treinar modelo com tracking MLflow
+model = trainer.train_model(
+    X_train,
+    y_train,
+    'random_forest',
+    run_name='random_forest_baseline',
+    n_estimators=100,
+    max_depth=10
+)
 
-# Avaliar modelo
+# Avaliar modelo (métricas são automaticamente logadas no MLflow)
 metrics = trainer.evaluate_model(model, X_test, y_test)
+
+# Salvar modelo (também salva no MLflow)
+trainer.save_model(model, 'models/trained/model.pkl', artifact_path='random_forest_model')
+
+# Encerrar run do MLflow
+trainer.end_run()
 ```
 
 ### 3. Engenharia de Features
@@ -226,6 +239,43 @@ MODELS:
     - "random_forest"
     - "logistic_regression"
     - "svm"
+```
+
+## 📊 MLflow Tracking
+
+O projeto inclui integração completa com MLflow para tracking de experimentos:
+
+```bash
+# Iniciar interface MLflow
+make mlflow-ui
+
+# Ou iniciar servidor MLflow completo
+make mlflow-server
+```
+
+Acesse a interface em: `http://localhost:5000`
+
+### Usando MLflow no código
+
+```python
+from src.models.trainer import ModelTrainer
+from src.models.mlflow_tracker import MLflowTracker
+
+# O trainer já vem com MLflow habilitado por padrão
+trainer = ModelTrainer(model_type='classification')
+
+# Cria um run customizado
+tracker = MLflowTracker(experiment_name='meu_experimento')
+run = tracker.start_run(run_name='teste_modelo_v1', tags={'version': '1.0'})
+
+# Train model - automaticamente loga no MLflow
+model = trainer.train_model(X_train, y_train, 'random_forest', run_name='rf_v1')
+
+# Loga métricas
+metrics = trainer.evaluate_model(model, X_test, y_test)
+
+# Fecha o run
+tracker.end_run()
 ```
 
 ## 🌐 API REST
