@@ -6,7 +6,6 @@ This module contains unit tests for FabricaIA modules.
 
 import os
 import tempfile
-from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -107,7 +106,7 @@ class TestModelTrainer:
 
     def setup_method(self):
         """Setup test data."""
-        self.trainer = ModelTrainer(model_type="classification")
+        self.trainer = ModelTrainer(model_type="classification", use_mlflow=False)
 
         # Create sample data
         np.random.seed(42)
@@ -306,7 +305,7 @@ class TestIntegration:
 
         # Initialize components
         processor = DataProcessor()
-        trainer = ModelTrainer(model_type="classification")
+        trainer = ModelTrainer(model_type="classification", use_mlflow=False)
 
         # Process data
         cleaned_data = processor.clean_data(data)

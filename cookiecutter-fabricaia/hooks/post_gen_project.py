@@ -14,7 +14,6 @@ def main() -> None:
     include_api = "{{ cookiecutter.include_api }}".lower() == "y"
     include_airflow = "{{ cookiecutter.include_airflow }}".lower() == "y"
     include_notebooks = "{{ cookiecutter.include_notebooks }}".lower() == "y"
-    include_deep = "{{ cookiecutter.include_deep_learning }}".lower() == "y"
 
     # Remove optional components if not selected
     if not include_api:

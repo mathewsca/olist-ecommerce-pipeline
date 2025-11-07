@@ -6,9 +6,8 @@ feature selection, and feature transformation.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Tuple
 
-import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.feature_selection import RFE, SelectKBest, f_classif, f_regression
@@ -61,7 +60,7 @@ class FeatureEngineer:
         return df_poly
 
     def create_interaction_features(
-        self, df: pd.DataFrame, feature_pairs: List[tuple]
+        self, df: pd.DataFrame, feature_pairs: List[Tuple[str, str]]
     ) -> pd.DataFrame:
         """
         Create interaction features between specified feature pairs.
@@ -210,7 +209,8 @@ class FeatureEngineer:
         )
 
         logger.info(
-            f"Feature selection completed using {method}. Selected {len(selected_features)} features"
+            f"Feature selection completed using {method}. "
+            f"Selected {len(selected_features)} features"
         )
         return X_selected_df
 

@@ -6,7 +6,7 @@ feature engineering, and data validation.
 """
 
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -63,7 +63,8 @@ class DataProcessor:
         Args:
             df: Input DataFrame
             drop_duplicates: Whether to drop duplicate rows
-            handle_missing: Strategy for handling missing values ('drop', 'fill', 'interpolate')
+            handle_missing: Strategy for handling missing values
+                ('drop', 'fill', 'interpolate')
 
         Returns:
             Cleaned DataFrame
@@ -92,7 +93,10 @@ class DataProcessor:
         return df_clean
 
     def encode_categorical(
-        self, df: pd.DataFrame, columns: List[str] = None, method: str = "label"
+        self,
+        df: pd.DataFrame,
+        columns: Optional[List[str]] = None,
+        method: str = "label",
     ) -> pd.DataFrame:
         """
         Encode categorical variables.
@@ -125,9 +129,9 @@ class DataProcessor:
     def scale_features(
         self,
         df: pd.DataFrame,
-        columns: List[str] = None,
+        columns: Optional[List[str]] = None,
         scaler_type: str = "standard",
-        exclude_columns: List[str] = None,
+        exclude_columns: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """
         Scale numerical features.
@@ -201,7 +205,7 @@ class DataProcessor:
         return X_train, X_test, y_train, y_test
 
     def get_feature_importance(
-        self, model, feature_names: List[str] = None
+        self, model: Any, feature_names: Optional[List[str]] = None
     ) -> pd.DataFrame:
         """
         Extract feature importance from trained model.

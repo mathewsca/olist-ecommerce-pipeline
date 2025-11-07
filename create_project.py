@@ -5,7 +5,7 @@ FabricaIA CookieCutter Template
 This script creates a new FabricaIA project using the cookiecutter template.
 """
 
-import os
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -13,9 +13,8 @@ from pathlib import Path
 
 def install_cookiecutter():
     """Install cookiecutter if not already installed."""
-    try:
-        import cookiecutter
-    except ImportError:
+    spec = importlib.util.find_spec("cookiecutter")
+    if spec is None:
         print("Installing cookiecutter...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "cookiecutter"])
 
@@ -58,9 +57,10 @@ def create_project():
         subprocess.run(cmd, check=True)
         print(f"\n✅ Project '{project_name}' created successfully!")
         print(f"📁 Navigate to the project directory: cd {project_name}")
-        print(f"🚀 Install dependencies: pip install -r requirements.txt")
+        print("🚀 Install dependencies: pip install -r requirements.txt")
         print(
-            f"📊 Run example notebook: jupyter notebook notebooks/fabricaia_example.ipynb"
+            "📊 Run example notebook: "
+            "jupyter notebook notebooks/fabricaia_example.ipynb"
         )
 
     except subprocess.CalledProcessError as e:

@@ -8,12 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import joblib
-import numpy as np
 import pandas as pd
 import yaml
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 # Import FabricaIA modules
@@ -216,7 +213,7 @@ async def get_model_info(model_name: str):
 
     model = models[model_name]
 
-    info = {
+    info: Dict[str, Any] = {
         "model_name": model_name,
         "model_type": type(model).__name__,
         "parameters": getattr(model, "get_params", lambda: {})(),

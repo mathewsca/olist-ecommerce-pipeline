@@ -24,8 +24,6 @@ from sklearn.metrics import (
 from sklearn.model_selection import GridSearchCV, cross_val_score
 from sklearn.svm import SVC, SVR
 
-from .mlflow_tracker import MLflowTracker
-
 logger = logging.getLogger(__name__)
 
 
@@ -55,21 +53,43 @@ class ModelTrainer:
         self.mlflow_tracker = None
 
         # Load MLflow configuration
+        # (lazy import to avoid hanging during pytest collection)
         if self.use_mlflow:
+            # Check if MLflow is disabled via environment variable (e.g., during tests)
+            import os
+
+            if os.environ.get("MLFLOW_DISABLE_TRACKING", "").lower() == "true":
+                logger.info(
+                    "MLflow disabled via MLFLOW_DISABLE_TRACKING environment variable"
+                )
+                self.use_mlflow = False
+                return
+
             try:
-                with open(config_path, "r") as f:
-                    config = yaml.safe_load(f)
-                    mlflow_config = config.get("MLFLOW", {})
-                    if mlflow_config.get("enable_tracking", True):
-                        self.mlflow_tracker = MLflowTracker(
-                            tracking_uri=mlflow_config.get(
-                                "tracking_uri", "sqlite:///mlflow.db"
-                            ),
-                            experiment_name=mlflow_config.get(
-                                "experiment_name", "fabricaia_experiments"
-                            ),
-                        )
-                        logger.info("MLflow tracking enabled")
+                # Lazy import MLflowTracker to avoid import-time initialization
+                from .mlflow_tracker import MLflowTracker
+
+                # Check if config file exists before trying to read it
+                config_file = Path(config_path)
+                if config_file.exists():
+                    with open(config_path, "r") as f:
+                        config = yaml.safe_load(f)
+                        mlflow_config = config.get("MLFLOW", {})
+                        if mlflow_config.get("enable_tracking", True):
+                            self.mlflow_tracker = MLflowTracker(
+                                tracking_uri=mlflow_config.get(
+                                    "tracking_uri", "sqlite:///mlflow.db"
+                                ),
+                                experiment_name=mlflow_config.get(
+                                    "experiment_name", "fabricaia_experiments"
+                                ),
+                            )
+                            logger.info("MLflow tracking enabled")
+                else:
+                    logger.warning(
+                        f"Config file not found: {config_path}, MLflow disabled"
+                    )
+                    self.use_mlflow = False
             except Exception as e:
                 logger.warning(f"Could not initialize MLflow: {e}")
                 self.use_mlflow = False

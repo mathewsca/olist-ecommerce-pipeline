@@ -7,7 +7,7 @@ and model performance visualization.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,10 +39,10 @@ class DataVisualizer:
     def plot_distribution(
         self,
         df: pd.DataFrame,
-        columns: List[str] = None,
+        columns: Optional[List[str]] = None,
         plot_type: str = "histogram",
         bins: int = 30,
-        save_path: str = None,
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot distribution of numerical columns.
@@ -101,7 +101,10 @@ class DataVisualizer:
         plt.show()
 
     def plot_correlation_matrix(
-        self, df: pd.DataFrame, method: str = "pearson", save_path: str = None
+        self,
+        df: pd.DataFrame,
+        method: str = "pearson",
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot correlation matrix heatmap.
@@ -145,7 +148,10 @@ class DataVisualizer:
         plt.show()
 
     def plot_feature_importance(
-        self, importance_df: pd.DataFrame, top_n: int = 20, save_path: str = None
+        self,
+        importance_df: pd.DataFrame,
+        top_n: int = 20,
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot feature importance.
@@ -182,7 +188,10 @@ class DataVisualizer:
         plt.show()
 
     def plot_model_performance(
-        self, metrics: Dict[str, Any], model_name: str = "Model", save_path: str = None
+        self,
+        metrics: Dict[str, Any],
+        model_name: str = "Model",
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot model performance metrics.
@@ -239,7 +248,7 @@ class DataVisualizer:
         y_true: np.ndarray,
         y_pred: np.ndarray,
         model_name: str = "Model",
-        save_path: str = None,
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot predicted vs actual values.
@@ -284,7 +293,7 @@ class DataVisualizer:
         df: pd.DataFrame,
         time_column: str,
         value_columns: List[str],
-        save_path: str = None,
+        save_path: Optional[str] = None,
     ) -> None:
         """
         Plot time series data.
@@ -321,7 +330,9 @@ class DataVisualizer:
 
         plt.show()
 
-    def plot_missing_data(self, df: pd.DataFrame, save_path: str = None) -> None:
+    def plot_missing_data(
+        self, df: pd.DataFrame, save_path: Optional[str] = None
+    ) -> None:
         """
         Plot missing data patterns.
 

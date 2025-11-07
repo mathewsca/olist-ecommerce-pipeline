@@ -200,7 +200,7 @@ class FabricaIAPipeline:
 
             # Get feature importance (if available)
             if hasattr(model, "feature_importances_"):
-                importance_df = self.model_trainer.get_feature_importance(model)
+                importance_df = self.data_processor.get_feature_importance(model)
                 self.visualizer.plot_feature_importance(
                     importance_df, save_path=f"logs/{algorithm}_feature_importance.png"
                 )
@@ -268,7 +268,7 @@ class FabricaIAPipeline:
 def main():
     """Main function to run the pipeline."""
     # Example usage
-    pipeline = FabricaIAPipeline()
+    # pipeline = FabricaIAPipeline()
 
     # You would replace this with your actual data path
     # data_path = "data/raw/your_dataset.csv"
