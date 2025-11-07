@@ -51,7 +51,8 @@ cookiecutter cookiecutter-fabricaia --output-dir ..
 ├── docs/
 ├── pyproject.toml
 ├── requirements.txt
-└── .gitignore
+├── .gitignore
+└── .pre-commit-config.yaml
 ```
 
 **Nota**: Alguns diretórios podem não ser criados se você escolher "n" para as opções correspondentes (ex: `src/api/` se `include_api=n`, `pipelines/dags/` se `include_airflow=n`, `notebooks/` se `include_notebooks=n`).
@@ -73,11 +74,19 @@ pip install -e .
 # (Opcional) Kernel do Jupyter
 python -m ipykernel install --user --name <project_slug>
 
+# (Opcional) Inicializar repositório Git
+git init
+git add .
+git commit -m "Initial commit from FabricaIA template"
+
 # (Opcional) pre-commit
 pip install pre-commit
+pre-commit autoupdate  # Atualiza hooks para versões mais recentes
 pre-commit install
 pre-commit run -a
 ```
+
+**Nota**: O projeto gerado não é automaticamente um repositório Git. Se desejar usar controle de versão, execute `git init` após criar o projeto.
 
 ## Opções do template
 
