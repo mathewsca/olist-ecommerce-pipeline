@@ -22,8 +22,39 @@ cookiecutter cookiecutter-fabricaia --output-dir ..
 
 ## Estrutura gerada
 
-- **Diretórios**: `data/`, `models/`, `pipelines/{dags,scripts}`, `src/{api,data,features,models,visualization}`, `tests/{unit,integration}`, `config/`, `notebooks/`, `docs/`.
-- **Arquivos essenciais**: `pyproject.toml` (para `pip install -e .`), `requirements.txt`, `.gitignore`.
+**Importante**: O Cookiecutter copia o conteúdo de `cookiecutter-fabricaia/{{cookiecutter.project_slug}}/` para criar o novo projeto. A estrutura gerada será:
+
+```
+<project_slug>/
+├── config/
+│   └── config.yaml
+├── data/
+│   ├── external/
+│   ├── processed/
+│   └── raw/
+├── models/
+│   ├── artifacts/
+│   └── trained/
+├── pipelines/
+│   ├── dags/
+│   └── scripts/
+├── src/
+│   ├── api/
+│   ├── data/
+│   ├── features/
+│   ├── models/
+│   └── visualization/
+├── tests/
+│   ├── integration/
+│   └── unit/
+├── notebooks/
+├── docs/
+├── pyproject.toml
+├── requirements.txt
+└── .gitignore
+```
+
+**Nota**: Alguns diretórios podem não ser criados se você escolher "n" para as opções correspondentes (ex: `src/api/` se `include_api=n`, `pipelines/dags/` se `include_airflow=n`, `notebooks/` se `include_notebooks=n`).
 
 ## Instalação no projeto gerado
 
@@ -77,8 +108,10 @@ Ele solicita os dados básicos e chama o Cookiecutter usando o template local.
 
 ## Solução de problemas
 
-### "Gerou pasta vazia"
-O Cookiecutter copia o conteúdo de `cookiecutter-fabricaia/{{cookiecutter.project_slug}}/`. Se essa pasta estiver vazia, o projeto gerado ficará vazio. Este repositório já inclui a estrutura mínima.
+### "Gerou pasta vazia ou estrutura incompleta"
+O Cookiecutter copia o conteúdo de `cookiecutter-fabricaia/{{cookiecutter.project_slug}}/`. Se essa pasta estiver vazia ou incompleta, o projeto gerado terá a mesma estrutura. Este repositório já inclui a estrutura mínima necessária.
+
+**Verificação**: Confirme que o diretório `cookiecutter-fabricaia/{{cookiecutter.project_slug}}/` contém os arquivos e pastas esperados antes de gerar um novo projeto.
 
 ### "Quero gerar dentro da pasta atual"
 Use sem `--output-dir` (não recomendado para evitar misturar gerado com o template).
