@@ -5,9 +5,10 @@ This module contains reusable classes and functions for model training,
 evaluation, and management.
 """
 
+import inspect
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 import joblib
 import numpy as np
@@ -94,6 +95,40 @@ class ModelTrainer:
                 logger.warning(f"Could not initialize MLflow: {e}")
                 self.use_mlflow = False
 
+    def _filter_params(
+        self, model_class: Type[Any], params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Filter parameters to only include those valid for the given model class.
+
+        Args:
+            model_class: The model class to check parameters for
+            params: Dictionary of parameters to filter
+
+        Returns:
+            Filtered dictionary with only valid parameters
+        """
+        # Get valid parameters for the model class
+        # Access __init__ safely to satisfy mypy type checking
+        init_method = getattr(model_class, "__init__", None)
+        if init_method is None:
+            return {}
+        sig = inspect.signature(init_method)
+        valid_params = set(sig.parameters.keys()) - {"self"}
+
+        # Filter params to only include valid ones
+        filtered_params = {k: v for k, v in params.items() if k in valid_params}
+
+        # Log if any parameters were filtered out
+        removed_params = set(params.keys()) - set(filtered_params.keys())
+        if removed_params:
+            logger.warning(
+                f"Removed invalid parameters for {model_class.__name__}: "
+                f"{removed_params}"
+            )
+
+        return filtered_params
+
     def get_model(self, algorithm: str, **params):
         """
         Get a model instance based on algorithm name.
@@ -101,27 +136,32 @@ class ModelTrainer:
         Args:
             algorithm: Name of the algorithm
             **params: Model parameters
+                (only valid parameters for the algorithm will be used)
 
         Returns:
             Model instance
         """
         if self.model_type == "classification":
-            models = {
-                "random_forest": RandomForestClassifier(**params),
-                "logistic_regression": LogisticRegression(**params),
-                "svm": SVC(**params),
+            model_classes = {
+                "random_forest": RandomForestClassifier,
+                "logistic_regression": LogisticRegression,
+                "svm": SVC,
             }
         else:  # regression
-            models = {
-                "random_forest": RandomForestRegressor(**params),
-                "linear_regression": LinearRegression(**params),
-                "svm": SVR(**params),
+            model_classes = {
+                "random_forest": RandomForestRegressor,
+                "linear_regression": LinearRegression,
+                "svm": SVR,
             }
 
-        if algorithm not in models:
+        if algorithm not in model_classes:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
 
-        return models[algorithm]
+        # Filter parameters to only include valid ones for this algorithm
+        model_class = model_classes[algorithm]
+        filtered_params = self._filter_params(model_class, params)
+
+        return model_class(**filtered_params)
 
     def train_model(
         self,
