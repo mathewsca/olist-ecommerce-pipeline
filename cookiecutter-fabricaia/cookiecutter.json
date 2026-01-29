@@ -1,0 +1,17 @@
+{
+    "project_name": "FabricaIA Project",
+    "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '_').replace('-', '_') }}",
+    "project_description": "Machine Learning project using FabricaIA template",
+    "author_name": "Your Name",
+    "author_email": "your.email@example.com",
+    "python_version": "3.11",
+    "ml_framework": [
+        "scikit-learn",
+        "tensorflow",
+        "pytorch"
+    ],
+    "include_deep_learning": "y",
+    "include_api": "y",
+    "include_airflow": "y",
+    "include_notebooks": "y"
+}

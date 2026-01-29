@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fabricaia"
+version = "0.1.0"
+description = "FabricaIA - Estrutura de referência para projetos de ML"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "FabricaIA Team" }
+]
+license = { text = "MIT" }
+keywords = ["machine-learning", "ml", "data-science", "framework"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["src*"]
