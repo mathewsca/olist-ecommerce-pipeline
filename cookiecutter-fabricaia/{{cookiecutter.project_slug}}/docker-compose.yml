@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  {{ cookiecutter.project_slug }}-api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    command: python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  jupyter:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./src:/app/src
+    environment:
+      - PYTHONPATH=/app
+      - JUPYTER_ENABLE_LAB=yes
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+
+  airflow-webserver:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./pipelines:/opt/airflow/pipelines
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - ./src:/opt/airflow/src
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/pipelines/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      - PYTHONPATH=/opt/airflow
+    command: airflow webserver --port 8080
+
+  airflow-scheduler:
+    build: .
+    volumes:
+      - ./pipelines:/opt/airflow/pipelines
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - ./src:/opt/airflow/src
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/pipelines/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - PYTHONPATH=/opt/airflow
+    command: airflow scheduler
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
