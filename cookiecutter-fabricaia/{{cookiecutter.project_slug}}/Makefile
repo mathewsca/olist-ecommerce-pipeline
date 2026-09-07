@@ -85,10 +85,10 @@ airflow-scheduler: ## Start Airflow scheduler
 airflow: airflow-init airflow-webserver ## Start Airflow (init + webserver)
 
 mlflow-server: ## Start MLflow server
-	mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
+	mlflow server --host 0.0.0.0 --port 5001 --backend-store-uri sqlite:///mlflow.db
 
 mlflow-ui: ## Start MLflow UI (alternative to server)
-	mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
+	mlflow ui --host 0.0.0.0 --port 5001 --backend-store-uri sqlite:///mlflow.db
 
 notebook: ## Run example notebook
 	jupyter nbconvert --execute --to notebook notebooks/*.ipynb
