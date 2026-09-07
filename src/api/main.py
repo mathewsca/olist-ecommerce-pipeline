@@ -156,7 +156,7 @@ async def predict(request: PredictionRequest):
             confidence = max(probability.values())
 
         return PredictionResponse(
-            prediction=prediction[0] if len(prediction) == 1 else prediction.tolist(),
+            prediction=prediction[0].item() if len(prediction) == 1 else prediction.tolist(),
             probability=probability,
             model_name=request.model_name,
             confidence=confidence,
