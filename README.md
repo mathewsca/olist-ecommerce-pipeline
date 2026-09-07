@@ -253,7 +253,7 @@ make mlflow-ui
 make mlflow-server
 ```
 
-Acesse a interface em: `http://localhost:5000`
+Acesse a interface em: `http://localhost:5001`
 
 ### Usando MLflow no código
 
