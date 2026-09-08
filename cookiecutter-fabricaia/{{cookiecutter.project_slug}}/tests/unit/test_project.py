@@ -326,5 +326,33 @@ class TestIntegration:
         assert metrics["accuracy"] >= 0  # Should be a valid accuracy score
 
 
+class TestPredictionService:
+    """Test cases for PredictionService class."""
+
+    def test_prediction_service_raw_inference(self):
+        from src.services.prediction_service import PredictionService
+        from sklearn.ensemble import RandomForestClassifier
+
+        service = PredictionService()
+        X = pd.DataFrame({
+            "f1": [1.0, 2.0, 3.0, 4.0],
+            "f2": [10.0, 20.0, 30.0, 40.0],
+        })
+        y = np.array([0, 1, 0, 1])
+        model = RandomForestClassifier(n_estimators=5, random_state=42)
+        model.fit(X, y)
+
+        res = service.predict_instance(
+            model=model,
+            model_name="test_rf",
+            raw_features={"f1": 2.5, "f2": 25.0},
+        )
+
+        assert "prediction" in res
+        assert "probability" in res
+        assert "confidence" in res
+        assert res["prediction"] in [0, 1]
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

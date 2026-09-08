@@ -77,22 +77,73 @@ class ModelTrainer:
                         config = yaml.safe_load(f)
                         mlflow_config = config.get("MLFLOW", {})
                         if mlflow_config.get("enable_tracking", True):
-                            self.mlflow_tracker = MLflowTracker(
-                                tracking_uri=mlflow_config.get(
-                                    "tracking_uri", "sqlite:///mlflow.db"
-                                ),
-                                experiment_name=mlflow_config.get(
-                                    "experiment_name", "fabricaia_experiments"
-                                ),
+                            effective_uri = (
+                                os.environ.get("MLFLOW_TRACKING_URI")
+                                or mlflow_config.get("tracking_uri", "sqlite:///mlflow.db")
                             )
-                            logger.info("MLflow tracking enabled")
+                            effective_exp = (
+                                os.environ.get("MLFLOW_EXPERIMENT_NAME")
+                                or mlflow_config.get("experiment_name", "fabricaia_experiments")
+                            )
+                            effective_user = (
+                                os.environ.get("MLFLOW_TRACKING_USERNAME")
+                                or mlflow_config.get("username")
+                            )
+                            effective_pass = (
+                                os.environ.get("MLFLOW_TRACKING_PASSWORD")
+                                or mlflow_config.get("password")
+                            )
+                            effective_token = (
+                                os.environ.get("MLFLOW_TRACKING_TOKEN")
+                                or mlflow_config.get("token")
+                            )
+                            self.mlflow_tracker = MLflowTracker(
+                                tracking_uri=effective_uri,
+                                experiment_name=effective_exp,
+                                username=effective_user,
+                                password=effective_pass,
+                                token=effective_token,
+                            )
+                            if self.mlflow_tracker.client is None:
+                                if effective_uri != "sqlite:///mlflow.db":
+                                    logger.warning(
+                                        f"Falha ao conectar ao servidor MLflow ({effective_uri}). "
+                                        "Ativando fallback automático para SQLite local ('sqlite:///mlflow.db')..."
+                                    )
+                                    try:
+                                        self.mlflow_tracker = MLflowTracker(
+                                            tracking_uri="sqlite:///mlflow.db",
+                                            experiment_name=effective_exp,
+                                        )
+                                        self.use_mlflow = True
+                                        logger.info(
+                                            f"MLflow ativo via fallback local (sqlite:///mlflow.db, Experimento: {self.mlflow_tracker.experiment_name})"
+                                        )
+                                    except Exception as local_err:
+                                        logger.error(
+                                            f"Fallback local do MLflow também falhou: {local_err}"
+                                        )
+                                        self.mlflow_tracker = None
+                                        self.use_mlflow = False
+                                else:
+                                    logger.error(
+                                        f"Falha ao inicializar banco local MLflow ({effective_uri}). "
+                                        "O rastreamento via MLflow foi desabilitado."
+                                    )
+                                    self.mlflow_tracker = None
+                                    self.use_mlflow = False
+                            else:
+                                logger.info(
+                                    f"MLflow tracking ativo (URI: {effective_uri}, Experimento: {self.mlflow_tracker.experiment_name})"
+                                )
                 else:
                     logger.warning(
                         f"Config file not found: {config_path}, MLflow disabled"
                     )
                     self.use_mlflow = False
             except Exception as e:
-                logger.warning(f"Could not initialize MLflow: {e}")
+                logger.error(f"Could not initialize MLflow: {e}")
+                self.mlflow_tracker = None
                 self.use_mlflow = False
 
     def _filter_params(
@@ -201,12 +252,40 @@ class ModelTrainer:
             )
 
         logger.info(f"Training {algorithm} model...")
+        if self.model_type == "classification" and hasattr(y_train, "dtype") and y_train.dtype.kind == "f":
+            y_train = (y_train > 0.5).astype(int) if len(np.unique(y_train)) <= 2 else y_train.round().astype(int)
         model.fit(X_train, y_train)
 
         self.models[algorithm] = model
         logger.info(f"Model {algorithm} trained successfully")
 
         return model
+
+    def get_feature_importance(
+        self, model: Any, feature_names: Optional[List[str]] = None
+    ) -> pd.DataFrame:
+        """
+        Extract feature importances from a model into a DataFrame.
+
+        Args:
+            model: Trained model
+            feature_names: Optional list of feature names
+
+        Returns:
+            DataFrame with 'feature' and 'importance' columns
+        """
+        if hasattr(model, "feature_importances_"):
+            importances = model.feature_importances_
+        elif hasattr(model, "coef_"):
+            importances = np.abs(model.coef_[0] if model.coef_.ndim > 1 else model.coef_)
+        else:
+            return pd.DataFrame(columns=["feature", "importance"])
+
+        if feature_names is None:
+            feature_names = [f"feature_{i}" for i in range(len(importances))]
+
+        df = pd.DataFrame({"feature": feature_names, "importance": importances})
+        return df.sort_values("importance", ascending=False).reset_index(drop=True)
 
     def evaluate_model(
         self, model: Any, X_test: pd.DataFrame, y_test: pd.Series
@@ -225,6 +304,8 @@ class ModelTrainer:
         y_pred = model.predict(X_test)
 
         if self.model_type == "classification":
+            if hasattr(y_test, "dtype") and y_test.dtype.kind == "f":
+                y_test = (y_test > 0.5).astype(int) if len(np.unique(y_test)) <= 2 else y_test.round().astype(int)
             metrics = {
                 "accuracy": model.score(X_test, y_test),
                 "classification_report": classification_report(
@@ -419,10 +500,10 @@ class ModelTrainer:
         logger.info(f"Probabilities generated for {len(X)} samples")
         return probabilities
 
-    def end_run(self):
+    def end_run(self, status: str = "FINISHED"):
         """
         End the current MLflow run.
         """
         if self.mlflow_tracker:
-            self.mlflow_tracker.end_run()
-            logger.info("Ended MLflow run")
+            self.mlflow_tracker.end_run(status=status)
+            logger.info(f"Ended MLflow run with status: {status}")

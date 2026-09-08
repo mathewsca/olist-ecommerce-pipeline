@@ -80,12 +80,16 @@ class DataProcessor:
             numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
             categorical_cols = df_clean.select_dtypes(include=["object"]).columns
 
-            df_clean[numeric_cols] = df_clean[numeric_cols].fillna(
-                df_clean[numeric_cols].mean()
-            )
-            df_clean[categorical_cols] = df_clean[categorical_cols].fillna(
-                df_clean[categorical_cols].mode().iloc[0]
-            )
+            if len(numeric_cols) > 0:
+                df_clean[numeric_cols] = df_clean[numeric_cols].fillna(
+                    df_clean[numeric_cols].mean()
+                )
+            if len(categorical_cols) > 0 and not df_clean[categorical_cols].empty:
+                mode_vals = df_clean[categorical_cols].mode()
+                if not mode_vals.empty:
+                    df_clean[categorical_cols] = df_clean[categorical_cols].fillna(
+                        mode_vals.iloc[0]
+                    )
         elif handle_missing == "interpolate":
             df_clean = df_clean.interpolate()
 

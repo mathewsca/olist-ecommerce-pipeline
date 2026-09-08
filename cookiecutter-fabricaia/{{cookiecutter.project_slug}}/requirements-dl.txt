@@ -1,0 +1,4 @@
+# Deep Learning dependencies (optional)
+# Install with: pip install -r requirements-dl.txt (or make install-dl)
+torch>=2.0.0
+tensorflow>=2.13.0

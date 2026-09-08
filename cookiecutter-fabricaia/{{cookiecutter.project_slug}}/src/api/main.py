@@ -16,6 +16,7 @@ from pydantic import BaseModel
 # Import FabricaIA modules
 from src.data.processor import DataProcessor
 from src.models.trainer import ModelTrainer
+from src.services.prediction_service import PredictionService
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -33,12 +34,14 @@ models = {}
 config = None
 data_processor = DataProcessor()
 model_trainer = ModelTrainer()
+prediction_service = PredictionService()
 
 
 class PredictionRequest(BaseModel):
     """Request model for predictions."""
 
-    features: Dict[str, Any]
+    features: Optional[Dict[str, Any]] = None
+    lookup_id: Optional[str] = None
     model_name: str = "random_forest"
 
 
@@ -49,6 +52,8 @@ class PredictionResponse(BaseModel):
     probability: Optional[Dict[str, float]] = None
     model_name: str
     confidence: Optional[float] = None
+    lookup_id: Optional[str] = None
+    raw_input_summary: Optional[Dict[str, Any]] = None
 
 
 class ModelInfo(BaseModel):
@@ -120,7 +125,7 @@ async def list_models():
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
-    """Make predictions using a trained model."""
+    """Make predictions using a trained model via PredictionService (supporting lookup and consistent preprocessing)."""
     try:
         # Check if model exists
         if request.model_name not in models:
@@ -130,40 +135,18 @@ async def predict(request: PredictionRequest):
 
         model = models[request.model_name]
 
-        # Convert features to DataFrame
-        features_df = pd.DataFrame([request.features])
-
-        # Preprocess features if needed
-        # This would depend on your specific preprocessing requirements
-        processed_features = features_df
-
-        # Make prediction
-        prediction = model_trainer.predict(model, processed_features)
-
-        # Get probabilities if available
-        probability = None
-        if hasattr(model, "predict_proba"):
-            proba = model_trainer.predict_proba(model, processed_features)
-            classes = getattr(model, "classes_", None)
-            if classes is not None:
-                probability = {
-                    str(classes[i]): float(proba[0][i]) for i in range(len(classes))
-                }
-
-        # Calculate confidence (max probability for classification)
-        confidence = None
-        if probability:
-            confidence = max(probability.values())
-
-        return PredictionResponse(
-            prediction=(
-                prediction[0].item() if len(prediction) == 1 else prediction.tolist()
-            ),
-            probability=probability,
+        # Use PredictionService to handle lookup, feature transformation, and inference
+        result = prediction_service.predict_instance(
+            model=model,
             model_name=request.model_name,
-            confidence=confidence,
+            raw_features=request.features,
+            lookup_id=request.lookup_id,
         )
 
+        return PredictionResponse(**result)
+
+    except (ValueError, KeyError) as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Prediction error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

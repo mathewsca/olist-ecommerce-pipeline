@@ -10,8 +10,8 @@
         "tensorflow",
         "pytorch"
     ],
-    "include_deep_learning": "y",
+    "include_deep_learning": "n",
     "include_api": "y",
-    "include_airflow": "y",
+    "include_airflow": "n",
     "include_notebooks": "y"
 }

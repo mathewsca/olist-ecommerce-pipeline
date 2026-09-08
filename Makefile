@@ -1,19 +1,40 @@
 # FabricaIA Makefile
 
-.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit mlflow-server mlflow-ui
+.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit mlflow-server mlflow-ui mlflow-stop data pipeline airflow-stop airflow-standalone
 
 help: ## Show this help message
 	@echo "FabricaIA - Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install dependencies
-	pip install -r requirements.txt
-	pip install -e .
+PYTHON ?= $(shell which python3 2>/dev/null || which python 2>/dev/null || echo "python3")
+PIP := $(shell which pip 2>/dev/null || if [ -f "venv/bin/pip" ]; then echo "venv/bin/pip"; elif [ -f ".venv/bin/pip" ]; then echo ".venv/bin/pip"; elif [ -f "venv/Scripts/pip.exe" ]; then echo "venv/Scripts/pip.exe"; else echo ""; fi)
+AIRFLOW := $(shell which airflow 2>/dev/null || if [ -f "venv/bin/airflow" ]; then echo "venv/bin/airflow"; elif [ -f ".venv/bin/airflow" ]; then echo ".venv/bin/airflow"; elif [ -f "venv/Scripts/airflow.exe" ]; then echo "venv/Scripts/airflow.exe"; else echo "airflow"; fi)
 
-install-dev: ## Install development dependencies
-	pip install -r requirements.txt
-	pip install pytest pytest-cov black flake8 isort mypy pre-commit
-	pip install -e .
+export AIRFLOW__CORE__LOAD_EXAMPLES ?= False
+export AIRFLOW__CORE__DAGS_FOLDER ?= $(shell pwd)/pipelines/dags
+export PYTHONPATH := $(shell pwd):$(PYTHONPATH)
+
+check-pip:
+	@if [ -z "$(PIP)" ]; then \
+		echo "❌ Erro: 'pip' não foi encontrado no PATH nem em 'venv/'."; \
+		echo "💡 Dica: Crie e ative o ambiente virtual antes:"; \
+		echo "   $(PYTHON) -m venv venv"; \
+		echo '   source venv/bin/activate  # (ou venv\Scripts\activate no Windows)'; \
+		echo "   make install"; \
+		exit 1; \
+	fi
+
+install: check-pip ## Install core dependencies (lightweight)
+	$(PIP) install -r requirements.txt
+	$(PIP) install -e .
+
+install-dl: check-pip ## Install optional Deep Learning dependencies (PyTorch, TensorFlow)
+	$(PIP) install -r requirements-dl.txt
+
+install-dev: check-pip ## Install development dependencies
+	$(PIP) install -r requirements.txt
+	$(PIP) install pytest pytest-cov black flake8 isort mypy pre-commit
+	$(PIP) install -e .
 	pre-commit install
 
 test: ## Run tests
@@ -71,17 +92,33 @@ jupyter: ## Start Jupyter notebook
 jupyter-lab: ## Start Jupyter Lab
 	jupyter lab notebooks/
 
-airflow-init: ## Initialize Airflow database
-	airflow db init
-	airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin
+airflow-init: ## Initialize Airflow database (Airflow 2.7+ uses migrate, older uses init)
+	@mkdir -p $(HOME)/airflow/dags
+	@ln -sfn $(shell pwd)/pipelines/dags $(HOME)/airflow/dags 2>/dev/null || true
+	@$(AIRFLOW) db migrate 2>/dev/null || $(AIRFLOW) db init
+	@python3 -c 'import os, json; home = os.environ.get("AIRFLOW_HOME", os.path.expanduser("~/airflow")); os.makedirs(home, exist_ok=True); f = os.path.join(home, "simple_auth_manager_passwords.json.generated"); data = json.load(open(f)) if os.path.exists(f) else {}; data["admin"] = "admin"; json.dump(data, open(f, "w"))' 2>/dev/null || true
+	@$(AIRFLOW) users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin 2>/dev/null || echo "Usuário admin pronto (admin/admin)."
+	@$(AIRFLOW) dags reserialize 2>/dev/null || true
 
-airflow-webserver: ## Start Airflow webserver
-	airflow webserver --port 8080
+airflow-webserver: ## Start Airflow server (Airflow 3: api-server, Airflow 2: webserver)
+	@mkdir -p $(HOME)/airflow/dags
+	@ln -sfn $(shell pwd)/pipelines/dags $(HOME)/airflow/dags 2>/dev/null || true
+	@$(AIRFLOW) api-server --port 8080 2>/dev/null || $(AIRFLOW) webserver --port 8080
 
 airflow-scheduler: ## Start Airflow scheduler
-	airflow scheduler
+	@mkdir -p $(HOME)/airflow/dags
+	@ln -sfn $(shell pwd)/pipelines/dags $(HOME)/airflow/dags 2>/dev/null || true
+	$(AIRFLOW) scheduler
 
-airflow: airflow-init airflow-webserver ## Start Airflow (init + webserver)
+airflow-standalone: ## Start Airflow all-in-one (api-server/webserver + scheduler)
+	@mkdir -p $(HOME)/airflow/dags
+	@ln -sfn $(shell pwd)/pipelines/dags $(HOME)/airflow/dags 2>/dev/null || true
+	$(AIRFLOW) standalone
+
+airflow-stop: ## Stop running Airflow services
+	@pkill -f "airflow (webserver|api-server|scheduler|standalone)" 2>/dev/null && echo "Serviços do Airflow encerrados." || echo "Nenhum serviço do Airflow em execução."
+
+airflow: airflow-init airflow-webserver ## Start Airflow (init + webserver/api-server)
 
 mlflow-server: ## Start MLflow server
 	mlflow server --host 0.0.0.0 --port 5001 --backend-store-uri sqlite:///mlflow.db
@@ -89,10 +126,20 @@ mlflow-server: ## Start MLflow server
 mlflow-ui: ## Start MLflow UI (alternative to server)
 	mlflow ui --host 0.0.0.0 --port 5001 --backend-store-uri sqlite:///mlflow.db
 
+mlflow-stop: ## Stop running MLflow server
+	@pkill -f "mlflow (server|ui)" 2>/dev/null && echo "Servidor MLflow encerrado." || echo "Nenhum servidor MLflow em execução."
+
 notebook: ## Run example notebook
 	jupyter nbconvert --execute --to notebook notebooks/fabricaia_example.ipynb
 
-pipeline: ## Run example pipeline
+data: ## Generate synthetic dataset for end-to-end pipeline
+	python scripts/generate_dataset.py
+
+pipeline: ## Run example pipeline (generates sample data if needed)
+	@if [ ! -f "data/raw/obras_publicas.csv" ]; then \
+		echo "ℹ️  Dataset 'data/raw/obras_publicas.csv' não encontrado. Gerando dados de exemplo..."; \
+		$(MAKE) data; \
+	fi
 	python pipelines/scripts/example_pipeline.py
 
 create-project: ## Create new project using cookiecutter
