@@ -1,0 +1,3 @@
+# Apache Airflow local execution dependencies (optional - usually orchestrated via Docker Compose)
+# Install with: pip install -r requirements-airflow.txt
+apache-airflow>=2.6.0

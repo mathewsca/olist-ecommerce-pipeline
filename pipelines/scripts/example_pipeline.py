@@ -7,6 +7,7 @@ for a complete machine learning workflow.
 
 import logging
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -97,12 +98,15 @@ class FabricaIAPipeline:
 
         return df
 
-    def preprocess_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def preprocess_data(
+        self, df: pd.DataFrame, target_column: Optional[str] = None
+    ) -> pd.DataFrame:
         """
         Preprocess the data.
 
         Args:
             df: Input DataFrame
+            target_column: Optional target column to preserve without scaling
 
         Returns:
             Preprocessed DataFrame
@@ -114,29 +118,45 @@ class FabricaIAPipeline:
             df, drop_duplicates=True, handle_missing="fill"
         )
 
-        # Encode categorical variables
-        df_encoded = self.data_processor.encode_categorical(df_clean, method="label")
+        # Encode categorical variables (preserve target if present)
+        cat_cols = df_clean.select_dtypes(include=["object", "category"]).columns.tolist()
+        if target_column and target_column in cat_cols:
+            cat_cols.remove(target_column)
+        df_encoded = self.data_processor.encode_categorical(
+            df_clean, columns=cat_cols if cat_cols else None, method="label"
+        )
 
-        # Scale features
-        df_scaled = self.data_processor.scale_features(df_encoded)
+        # Scale numerical features (excluding target column)
+        num_cols = df_encoded.select_dtypes(include=[np.number]).columns.tolist()
+        if target_column and target_column in num_cols:
+            num_cols.remove(target_column)
+        df_scaled = self.data_processor.scale_features(
+            df_encoded, columns=num_cols if num_cols else None
+        )
 
         logger.info(f"Preprocessed data shape: {df_scaled.shape}")
         return df_scaled
 
-    def engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    def engineer_features(
+        self, df: pd.DataFrame, target_column: Optional[str] = None
+    ) -> pd.DataFrame:
         """
         Engineer new features.
 
         Args:
             df: Input DataFrame
+            target_column: Optional target column to exclude from feature engineering
 
         Returns:
             DataFrame with engineered features
         """
         logger.info("Engineering features...")
 
-        # Get numerical columns for feature engineering
-        numerical_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        # Get numerical columns for feature engineering (excluding target)
+        numerical_cols = [
+            c for c in df.select_dtypes(include=[np.number]).columns
+            if c != target_column
+        ]
 
         # Create polynomial features
         if len(numerical_cols) >= 2:
@@ -187,42 +207,51 @@ class FabricaIAPipeline:
         for algorithm in algorithms:
             logger.info(f"Training {algorithm}...")
 
-            # Train model
-            model = self.model_trainer.train_model(X_train, y_train, algorithm)
+            # Start distinct MLflow run if enabled
+            if self.model_trainer.mlflow_tracker:
+                self.model_trainer.mlflow_tracker.start_run(run_name=f"{algorithm}_run")
 
-            # Evaluate model
-            metrics = self.model_trainer.evaluate_model(model, X_test, y_test)
+            try:
+                # Train model
+                model = self.model_trainer.train_model(X_train, y_train, algorithm)
 
-            # Cross-validation
-            cv_results = self.model_trainer.cross_validate(
-                model, pd.concat([X_train, X_test]), pd.concat([y_train, y_test])
-            )
+                # Evaluate model
+                metrics = self.model_trainer.evaluate_model(model, X_test, y_test)
 
-            # Get feature importance (if available)
-            if hasattr(model, "feature_importances_"):
-                importance_df = self.data_processor.get_feature_importance(model)
-                self.visualizer.plot_feature_importance(
-                    importance_df, save_path=f"logs/{algorithm}_feature_importance.png"
+                # Cross-validation
+                cv_results = self.model_trainer.cross_validate(
+                    model, pd.concat([X_train, X_test]), pd.concat([y_train, y_test])
                 )
 
-            # Plot predictions vs actual
-            y_pred = self.model_trainer.predict(model, X_test)
-            self.visualizer.plot_prediction_vs_actual(
-                y_test, y_pred, algorithm, f"logs/{algorithm}_predictions.png"
-            )
+                # Get feature importance (if available)
+                if hasattr(model, "feature_importances_"):
+                    importance_df = self.data_processor.get_feature_importance(model)
+                    self.visualizer.plot_feature_importance(
+                        importance_df, save_path=f"logs/{algorithm}_feature_importance.png"
+                    )
 
-            # Save model
-            model_path = (
-                f"{self.config['MODEL_PATHS']['trained']}/{algorithm}_model.pkl"
-            )
-            self.model_trainer.save_model(model, model_path)
+                # Plot predictions vs actual
+                y_pred = self.model_trainer.predict(model, X_test)
+                self.visualizer.plot_prediction_vs_actual(
+                    y_test, y_pred, algorithm, f"logs/{algorithm}_predictions.png"
+                )
 
-            results[algorithm] = {
-                "model": model,
-                "metrics": metrics,
-                "cv_results": cv_results,
-                "model_path": model_path,
-            }
+                # Save model
+                model_path = (
+                    f"{self.config['MODEL_PATHS']['trained']}/{algorithm}_model.pkl"
+                )
+                self.model_trainer.save_model(model, model_path)
+
+                results[algorithm] = {
+                    "model": model,
+                    "metrics": metrics,
+                    "cv_results": cv_results,
+                    "model_path": model_path,
+                }
+            finally:
+                # Always end the MLflow run before proceeding to next algorithm
+                if self.model_trainer.mlflow_tracker:
+                    self.model_trainer.mlflow_tracker.end_run()
 
         return results
 
@@ -235,15 +264,22 @@ class FabricaIAPipeline:
             target_column: Name of the target column
         """
         logger.info("Starting FabricaIA Pipeline...")
+        if self.model_trainer and self.model_trainer.mlflow_tracker:
+            logger.info(
+                f"[MLflow] Tracking ATIVO: URI='{self.model_trainer.mlflow_tracker.tracking_uri}', "
+                f"Experimento='{self.model_trainer.mlflow_tracker.experiment_name}'"
+            )
+        else:
+            logger.info("[MLflow] Tracking DESATIVADO.")
 
         # 1. Load and explore data
         df = self.load_and_explore_data(data_path)
 
         # 2. Preprocess data
-        df_processed = self.preprocess_data(df)
+        df_processed = self.preprocess_data(df, target_column=target_column)
 
         # 3. Engineer features
-        df_features = self.engineer_features(df_processed)
+        df_features = self.engineer_features(df_processed, target_column=target_column)
 
         # 4. Split data
         X_train, X_test, y_train, y_test = self.data_processor.split_data(
@@ -267,16 +303,32 @@ class FabricaIAPipeline:
 
 def main():
     """Main function to run the pipeline."""
-    # Example usage
-    # pipeline = FabricaIAPipeline()
+    import os
+    import sys
 
-    # You would replace this with your actual data path
-    # data_path = "data/raw/your_dataset.csv"
-    # target_column = "your_target_column"
-    # results = pipeline.run_pipeline(data_path, target_column)
+    data_path = "data/raw/obras_publicas.csv"
+    target_column = "atraso_risco"
 
-    print("FabricaIA Pipeline initialized successfully!")
-    print("To run the pipeline, provide your data path and target column.")
+    if not os.path.exists(data_path):
+        print(f"ℹ️  Dataset de exemplo não encontrado em '{data_path}'. Gerando dados automaticamente...")
+        try:
+            from scripts.generate_dataset import generate_dataset
+            generate_dataset(output_path=data_path)
+            print(f"✅ Dataset gerado em '{data_path}'.")
+        except Exception as e:
+            print(f"❌ Erro ao gerar dataset de exemplo: {e}")
+            print("💡 Dica: Execute 'make data' ou forneça o arquivo CSV em 'data/raw/'.")
+            sys.exit(1)
+
+    print(f"Executing FabricaIA pipeline on {data_path} with target '{target_column}'...")
+    pipeline = FabricaIAPipeline()
+    if pipeline.model_trainer and pipeline.model_trainer.mlflow_tracker:
+        print(f"[MLflow] Servidor de Tracking: {pipeline.model_trainer.mlflow_tracker.tracking_uri}")
+        print(f"[MLflow] Nome do Experimento:  {pipeline.model_trainer.mlflow_tracker.experiment_name}")
+    else:
+        print("[MLflow] Tracking:             Desativado")
+    pipeline.run_pipeline(data_path, target_column)
+    print("FabricaIA Pipeline completed successfully!")
 
 
 if __name__ == "__main__":

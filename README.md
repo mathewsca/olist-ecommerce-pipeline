@@ -9,6 +9,18 @@ Este repositório abriga os artefatos técnicos, metodológicos e científicos d
 ## Sumário
 - [Visão Geral](#-visão-geral)
 - [Objetivos](#-objetivos)
+- [Características](#-características-do-repositório)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Instalação](#️-instalação)
+- [Uso Rápido](#-uso-rápido)
+- [Fluxo de Execução End-to-End](#-fluxo-de-execução-end-to-end)
+- [Configuração](#-configuração)
+- [MLflow Tracking](#-mlflow-tracking)
+- [API REST](#-api-rest)
+- [Pipelines com Airflow](#-pipelines-com-airflow)
+- [Testes](#-testes)
+- [Notebooks](#-notebooks)
+- [Contribuição](#-contribuição)
 
 ---
 
@@ -59,10 +71,12 @@ FabricaIA/
 ├── pipelines/                     # Pipelines de ML
 │   ├── dags/                      # DAGs do Airflow
 │   └── scripts/                   # Scripts de pipeline
+├── scripts/                       # Scripts utilitários e geradores de dados
 ├── src/                          # Código fonte
 │   ├── data/                     # Processamento de dados
 │   ├── models/                   # Treinamento de modelos
 │   ├── features/                 # Engenharia de features
+│   ├── services/                 # Serviços de inferência (prevenção de skew)
 │   ├── visualization/            # Visualizações
 │   └── api/                      # API REST
 ├── tests/                        # Testes
@@ -311,6 +325,96 @@ train_model = PythonOperator(task_id='train_model', python_callable=train_model_
 # Definir dependências
 load_data >> preprocess >> train_model
 ```
+
+## 🔁 Fluxo de Execução End-to-End
+
+O template permite executar e reproduzir o ciclo completo de desenvolvimento de ML e MLOps em poucos passos integrados. Para um guia operacional aprofundado com payloads, comandos e troubleshooting, consulte o [Runbook de Execução End-to-End](docs/RUNBOOK_END_TO_END.md).
+
+### 1. Geração da Base de Dados
+Gere uma base de dados sintética realista para experimentação (ou insira seu arquivo em `data/raw/`):
+```bash
+make data
+# Ou: python scripts/generate_dataset.py
+# Gera data/raw/obras_publicas.csv (500 contratos com atributos numéricos, categóricos e target de risco)
+```
+
+### 2. Rastreamento com MLflow (Local ou Remoto)
+Inicie o servidor MLflow local na porta 5001:
+```bash
+make mlflow-server &
+```
+> Acesse: `http://localhost:5001`
+
+Para servidores remotos protegidos por autenticação HTTP Basic, basta configurar as variáveis de ambiente (ou definir em `config/config.yaml`):
+```bash
+export MLFLOW_TRACKING_URI="http://servidor-remoto:5000"
+export MLFLOW_TRACKING_USERNAME="seu_usuario"
+export MLFLOW_TRACKING_PASSWORD="sua_senha"
+```
+
+### 3. Pipeline de Treinamento e Serialização
+Execute o pipeline unificado de ponta a ponta:
+```bash
+make pipeline
+# Ou: python pipelines/scripts/example_pipeline.py
+```
+O pipeline executa:
+- Carregamento e análise exploratória (com geração de gráficos em `logs/`)
+- Limpeza, imputação e normalização com `DataProcessor`
+- Geração de atributos polinomiais e de interação com `FeatureEngineer`
+- Treinamento comparativo de modelos (**Random Forest**, **Regressão Logística** e **SVM**) com validação cruzada
+- Registro de hiperparâmetros, métricas (Acurácia, F1-Score, Precisão, Revocação) e matrizes de confusão no MLflow
+- Serialização dos modelos treinados em `models/trained/`
+
+### 4. Serving com FastAPI (Prevenção de Training-Serving Skew)
+Inicie a API REST com live-reload:
+```bash
+make api
+# Acesse a documentação interativa Swagger UI em: http://localhost:8000/docs
+```
+
+A API utiliza a camada de serviço `PredictionService` (`src/services/prediction_service.py`), garantindo que os dados de inferência passem exatamente pelo mesmo pipeline de transformação do treino:
+
+* **Inferência por Lookup de Instância (Zero Skew):**
+```bash
+curl -X POST "http://localhost:8000/predict" \
+     -H "Content-Type: application/json" \
+     -d '{"lookup_id": "OBR-2024-0001", "model_name": "random_forest"}'
+```
+
+* **Inferência com Atributos Brutos:**
+```bash
+curl -X POST "http://localhost:8000/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "model_name": "random_forest",
+       "features": {
+         "tipo_obra": "rodovia",
+         "valor_previsto": 1500000.0,
+         "prazo_dias": 365,
+         "num_aditivos": 2,
+         "percentual_executado": 0.4,
+         "recurso_federal": 1,
+         "empresa_porte": "grande",
+         "indice_pluviometrico": 120.0
+       }
+     }'
+```
+
+* **Inferência em Lote via Planilha CSV:**
+```bash
+curl -X POST "http://localhost:8000/predict_batch?model_name=random_forest" \
+     -F "file=@data/raw/obras_publicas.csv"
+```
+
+### 5. Orquestração Contínua com Apache Airflow
+A DAG em `pipelines/dags/fabricaia_pipeline_dag.py` orquestra o ciclo contínuo de MLOps:
+- Ingestão e validação
+- Verificação de **Data Drift** (mudança na distribuição dos dados de entrada)
+- Pré-processamento e persistência na **Feature Store** (`data/processed/feature_store.parquet`)
+- Retreinamento e avaliação
+- **Quality Gate & Promoção:** Se o modelo superar o limiar estipulado (ex: acurácia $\ge 0.75$), ele é promovido automaticamente como o modelo oficial de produção (`models/trained/production_model.pkl`).
+
 
 ## 🧪 Testes
 

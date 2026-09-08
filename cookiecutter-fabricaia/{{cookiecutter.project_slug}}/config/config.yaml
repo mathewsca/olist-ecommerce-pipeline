@@ -56,9 +56,11 @@ LOGGING:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/{{ cookiecutter.project_slug }}.log"
 
-# MLflow settings
+# MLflow settings (Local SQLite or Remote HTTP Server)
 MLFLOW:
-  tracking_uri: "sqlite:///mlflow.db"
+  tracking_uri: "sqlite:///mlflow.db"  # Ex. remoto: "http://seu-servidor-mlflow:5000"
   experiment_name: "{{ cookiecutter.project_slug }}_experiments"
   registry_uri: "models/mlflow"
   enable_tracking: true
+  username: null  # Ou via env MLFLOW_TRACKING_USERNAME
+  password: null  # Ou via env MLFLOW_TRACKING_PASSWORD

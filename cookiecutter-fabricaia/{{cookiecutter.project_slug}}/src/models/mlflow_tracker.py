@@ -47,41 +47,89 @@ class MLflowTracker:
 
     def __init__(
         self,
-        tracking_uri: str = "sqlite:///mlflow.db",
-        experiment_name: str = "fabricaia_experiments",
+        tracking_uri: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        token: Optional[str] = None,
     ):
         """
         Initialize MLflow tracker.
 
         Args:
-            tracking_uri: URI of the MLflow tracking server
+            tracking_uri: URI of the MLflow tracking server (local SQLite or remote HTTP)
             experiment_name: Name of the MLflow experiment
+            username: Optional username for remote HTTP authentication
+            password: Optional password for remote HTTP authentication
+            token: Optional bearer token for remote HTTP authentication
         """
-        self.tracking_uri = tracking_uri
-        self.experiment_name = experiment_name
+        # Env var has highest precedence, then passed argument, then fallback
+        self.tracking_uri = (
+            os.environ.get("MLFLOW_TRACKING_URI")
+            or tracking_uri
+            or "sqlite:///mlflow.db"
+        )
+        self.experiment_name = (
+            os.environ.get("MLFLOW_EXPERIMENT_NAME")
+            or experiment_name
+            or "fabricaia_experiments"
+        )
+
+        # Configure remote HTTP authentication if provided
+        effective_user = os.environ.get("MLFLOW_TRACKING_USERNAME") or username
+        effective_pass = os.environ.get("MLFLOW_TRACKING_PASSWORD") or password
+        effective_token = os.environ.get("MLFLOW_TRACKING_TOKEN") or token
+
+        if effective_user:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = effective_user
+        if effective_pass:
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = effective_pass
+        if effective_token:
+            os.environ["MLFLOW_TRACKING_TOKEN"] = effective_token
 
         # Lazy import MLflow to avoid hanging during import
         try:
             mlflow_module = self._get_mlflow()
             from mlflow.tracking import MlflowClient  # type: ignore
 
-            mlflow_module.set_tracking_uri(tracking_uri)
+            mlflow_module.set_tracking_uri(self.tracking_uri)
+            self.client = MlflowClient(tracking_uri=self.tracking_uri)
 
             # Get or create experiment
             try:
-                experiment = mlflow_module.get_experiment_by_name(experiment_name)
+                experiment = mlflow_module.get_experiment_by_name(self.experiment_name)
                 if experiment is None:
-                    mlflow_module.create_experiment(experiment_name)
-                    logger.info(f"Created MLflow experiment: {experiment_name}")
+                    try:
+                        exp_id = mlflow_module.create_experiment(self.experiment_name)
+                        logger.info(
+                            f"Created MLflow experiment: {self.experiment_name} (ID: {exp_id})"
+                        )
+                    except Exception as create_err:
+                        logger.warning(
+                            f"Could not create MLflow experiment '{self.experiment_name}': {create_err}"
+                        )
                 else:
-                    logger.info(f"Using existing MLflow experiment: {experiment_name}")
-            except Exception as e:
-                logger.warning(f"Could not create MLflow experiment: {e}")
+                    logger.info(
+                        f"Using existing MLflow experiment: {self.experiment_name} (ID: {experiment.experiment_id})"
+                    )
 
-            mlflow_module.set_experiment(experiment_name)
-            self.client = MlflowClient(tracking_uri=tracking_uri)
+                mlflow_module.set_experiment(self.experiment_name)
+            except Exception as e:
+                logger.warning(
+                    f"Could not set MLflow experiment '{self.experiment_name}': {e}. "
+                    "Falling back to default experiment 'Default'..."
+                )
+                try:
+                    mlflow_module.set_experiment("Default")
+                    self.experiment_name = "Default"
+                except Exception:
+                    pass
+
+            logger.info(f"MLflow client initialized for URI: {self.tracking_uri}")
         except Exception as e:
-            logger.warning(f"Could not initialize MLflow client: {e}")
+            logger.error(
+                f"Could not initialize MLflow client for '{self.tracking_uri}': {e}"
+            )
             self.client = None
 
     def start_run(
@@ -99,15 +147,18 @@ class MLflowTracker:
         if self.client is None:
             raise RuntimeError("MLflow client not initialized")
         mlflow_module = self._get_mlflow()
+        if mlflow_module.active_run():
+            mlflow_module.end_run()
         run = mlflow_module.start_run(run_name=run_name, tags=tags)
         logger.info(f"Started MLflow run: {run_name}")
         return run
 
-    def end_run(self):
+    def end_run(self, status: str = "FINISHED"):
         """End the current MLflow run."""
         mlflow_module = self._get_mlflow()
-        mlflow_module.end_run()
-        logger.info("Ended MLflow run")
+        if mlflow_module.active_run():
+            mlflow_module.end_run(status=status)
+            logger.info(f"Ended MLflow run with status: {status}")
 
     def log_params(self, params: Dict[str, Any]):
         """
@@ -152,31 +203,37 @@ class MLflowTracker:
         # Auto-detect model type
         model_type = type(model).__module__
 
-        if "sklearn" in model_type or "scikit_learn" in model_type:
-            import mlflow.sklearn  # type: ignore
+        try:
+            if "sklearn" in model_type or "scikit_learn" in model_type:
+                import mlflow.sklearn  # type: ignore
 
-            mlflow_module.sklearn.log_model(model, artifact_path, **kwargs)
-        elif "torch" in model_type or "pytorch" in model_type:
-            import mlflow.pytorch  # type: ignore
+                mlflow_module.sklearn.log_model(model, artifact_path, **kwargs)
+            elif "torch" in model_type or "pytorch" in model_type:
+                import mlflow.pytorch  # type: ignore
 
-            mlflow_module.pytorch.log_model(model, artifact_path, **kwargs)
-        elif "tensorflow" in model_type or "keras" in model_type:
-            import mlflow.tensorflow  # type: ignore  # noqa: F401
+                mlflow_module.pytorch.log_model(model, artifact_path, **kwargs)
+            elif "tensorflow" in model_type or "keras" in model_type:
+                import mlflow.tensorflow  # type: ignore  # noqa: F401
 
-            mlflow_module.tensorflow.log_model(model, artifact_path, **kwargs)
-        else:
-            # Fallback to generic model logging
-            import pickle
+                mlflow_module.tensorflow.log_model(model, artifact_path, **kwargs)
+            else:
+                # Fallback to generic model logging
+                import pickle
 
-            model_path = f"models/{artifact_path}"
-            Path(model_path).parent.mkdir(parents=True, exist_ok=True)
+                model_path = f"models/{artifact_path}"
+                Path(model_path).parent.mkdir(parents=True, exist_ok=True)
 
-            with open(f"{model_path}.pkl", "wb") as f:
-                pickle.dump(model, f)
+                with open(f"{model_path}.pkl", "wb") as f:
+                    pickle.dump(model, f)
 
-            mlflow_module.log_artifact(f"{model_path}.pkl")
+                mlflow_module.log_artifact(f"{model_path}.pkl")
 
-        logger.info(f"Logged model to {artifact_path}")
+            logger.info(f"Logged model to {artifact_path}")
+        except Exception as e:
+            logger.warning(
+                f"Could not log model artifact to MLflow: {e}. "
+                "The trained model was saved locally to disk."
+            )
 
         # Register model if name provided
         if registered_model_name:

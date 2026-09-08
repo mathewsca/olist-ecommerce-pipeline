@@ -148,6 +148,11 @@ airflow.db
 logs/
 dags/__pycache__/
 
+# MLflow
+mlflow.db
+mlflow.db-journal
+mlruns/
+
 # IDE
 .vscode/
 .idea/
