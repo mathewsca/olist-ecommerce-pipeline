@@ -39,13 +39,19 @@ dag = DAG(
 
 
 def _ensure_project_path():
+    import os
     import sys
     from pathlib import Path
-    project_root = str(Path(__file__).resolve().parent.parent.parent)
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
+    project_root = Path(__file__).resolve().parent.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
     if "/opt/airflow" not in sys.path:
         sys.path.append("/opt/airflow")
+    try:
+        os.chdir(project_root)
+    except Exception:
+        pass
+    return project_root
 
 
 def _resolve_data_path() -> str:

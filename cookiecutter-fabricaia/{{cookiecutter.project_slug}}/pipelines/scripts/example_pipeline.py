@@ -281,6 +281,14 @@ class FabricaIAPipeline:
         # 3. Engineer features
         df_features = self.engineer_features(df_processed, target_column=target_column)
 
+        # Sync to feature store
+        Path("data/processed").mkdir(parents=True, exist_ok=True)
+        df_processed.to_csv("data/processed/preprocessed_data.csv", index=False)
+        df_features.to_csv("data/processed/engineered_data.csv", index=False)
+        feature_store_path = "data/processed/feature_store.parquet"
+        df_features.to_parquet(feature_store_path, index=False)
+        logger.info(f"Feature store synced at '{feature_store_path}' ({len(df_features)} records)")
+
         # 4. Split data
         X_train, X_test, y_train, y_test = self.data_processor.split_data(
             df_features,
