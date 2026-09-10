@@ -1,6 +1,6 @@
 # Model Card — Modelo de Predição de Risco
 
-Este documento formaliza as características, métricas, limitações e diretrizes de uso do modelo de Machine Learning, seguindo as melhores práticas de governança, auditabilidade e Engenharia de Software para IA (*SE4AI*).
+Este documento formaliza as características, métricas, limitações e diretrizes de uso do modelo de Machine Learning, seguindo as melhores práticas de governança, auditabilidade e Engenharia de Software para IA (Projeto exemplo: *ObrasAlerta*, com dados sintéticos. Apenas para experimentar o processo da Fábrica de ponta a ponta).
 
 ---
 
