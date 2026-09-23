@@ -1,0 +1,10 @@
+[run]
+source = src
+omit =
+    # Exercised by tests/integration/ (real Postgres via testcontainers), not by
+    # the unit-test coverage gate - see docs/RUNBOOK_ETL_OLIST.md ("Testes").
+    src/etl/raw_loader.py
+    src/etl/dw_builder.py
+    src/etl/validations.py
+    # Streamlit UI code - verified by running the dashboard, not by pytest.
+    src/dashboard/*

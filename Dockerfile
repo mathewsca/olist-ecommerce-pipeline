@@ -11,16 +11,18 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY requirements.txt requirements-airflow.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (Airflow is included in the shared image so
+# airflow-webserver/airflow-scheduler compose services can run it directly)
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r requirements-airflow.txt
 
 # Copy project files
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p data/raw data/processed data/external \
+RUN mkdir -p data/raw data/processed data/external data/interim \
     models/trained models/artifacts \
     logs
 

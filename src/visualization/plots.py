@@ -21,6 +21,16 @@ plt.style.use("seaborn-v0_8")
 sns.set_palette("husl")
 
 
+def _release_figure() -> None:
+    """
+    Close the current figure instead of calling plt.show().
+
+    plt.show() opens a desktop window on every call, which popped up charts while running the
+    tests and pipelines. Figures are still written to `save_path` when one is given.
+    """
+    plt.close()
+
+
 class DataVisualizer:
     """Main class for data visualization operations."""
 
@@ -98,8 +108,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Distribution plot saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_correlation_matrix(
         self,
         df: pd.DataFrame,
@@ -145,8 +154,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Correlation matrix saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_feature_importance(
         self,
         importance_df: pd.DataFrame,
@@ -185,8 +193,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Feature importance plot saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_model_performance(
         self,
         metrics: Dict[str, Any],
@@ -241,8 +248,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Model performance plot saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_prediction_vs_actual(
         self,
         y_true: np.ndarray,
@@ -286,8 +292,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Prediction plot saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_time_series(
         self,
         df: pd.DataFrame,
@@ -328,8 +333,7 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Time series plot saved to {save_path}")
 
-        plt.show()
-
+        _release_figure()
     def plot_missing_data(
         self, df: pd.DataFrame, save_path: Optional[str] = None
     ) -> None:
@@ -390,4 +394,4 @@ class DataVisualizer:
             plt.savefig(save_path, dpi=self.dpi, bbox_inches="tight")
             logger.info(f"Missing data plot saved to {save_path}")
 
-        plt.show()
+        _release_figure()

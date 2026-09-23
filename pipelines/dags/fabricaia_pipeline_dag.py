@@ -1,7 +1,7 @@
 """
 FabricaIA - Airflow DAG Example
 
-This DAG demonstrates how to use FabricaIA modules in an Airflow workflow
+This DAG use FabricaIA modules in an Airflow workflow
 for automated machine learning pipelines.
 """
 
@@ -34,7 +34,7 @@ dag = DAG(
     description="FabricaIA Machine Learning Pipeline",
     schedule=timedelta(days=1),
     catchup=False,
-    tags=["ml", "fabricaia", "pipeline"],
+    tags=["etl", "fabricaia", "pipeline"],
 )
 
 

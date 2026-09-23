@@ -12,19 +12,23 @@
 | ├── `trained/` | Modelos salvos (arquivos .pkl) |
 | └── `artifacts/` | Artefatos do modelo (métricas, gráficos) |
 | `pipelines/` | Pipelines de automação |
-| ├── `dags/` | DAGs do Apache Airflow |
+| ├── `dags/` | DAGs do Apache Airflow (inclui `olist_etl_pipeline_dag.py`) |
 | └── `scripts/` | Scripts de pipeline Python |
 | `src/` | Código fonte do projeto |
-| ├── `data/` | Módulos de processamento de dados |
+| ├── `data/` | Módulos de processamento de dados (ML) |
+| ├── `etl/` | Módulos de ETL do Data Warehouse Olist (extract, raw, staging, dw, validações) |
+| ├── `dashboard/` | Dashboard Streamlit sobre o Data Warehouse (`app.py` + `tabs/`, 3 abas) |
 | ├── `models/` | Módulos de treinamento de modelos |
 | ├── `features/` | Módulos de engenharia de features |
 | ├── `visualization/` | Módulos de visualização |
 | └── `api/` | API REST com FastAPI |
+| `sql/` | DDL do Data Warehouse (`raw/`, `staging/`, `dw/`) |
+| `postgres/init/` | Script de inicialização do banco `olist_dw` no primeiro start do container |
 | `tests/` | Testes automatizados |
 | ├── `unit/` | Testes unitários |
-| └── `integration/` | Testes de integração |
+| └── `integration/` | Testes de integração (Postgres via testcontainers) |
 | `config/` | Arquivos de configuração |
-| `notebooks/` | Notebooks Jupyter |
+| `notebooks/` | Notebooks Jupyter (inclui a sequência `01`–`06` do projeto de ETL Olist) |
 | `docs/` | Documentação do projeto |
 | `logs/` | Arquivos de log |
 
@@ -149,6 +153,38 @@ Pipeline automatizado com tarefas:
 - `evaluate_models`
 - `cleanup_temp_files`
 
+### 5. ETL do Data Warehouse Olist (`src/etl/`)
+```python
+from src.etl.db import get_engine
+from src.etl.raw_loader import RawLoader
+from src.etl.staging_transform import StagingTransformer
+from src.etl.dw_builder import DWBuilder
+from src.etl.validations import DWValidator
+
+engine = get_engine()
+RawLoader(engine).load_all()
+StagingTransformer(engine).build_all()
+builder = DWBuilder(engine)
+builder.build_all_dimensions()
+builder.build_all_facts()
+DWValidator(engine).run_all()
+```
+
+**Funcionalidades:**
+- `kaggle_ingestion.py` — download idempotente do dataset via Kaggle API
+- `raw_loader.py` — carga dos CSVs no schema `raw`
+- `staging_transform.py` — limpeza/tipagem/deduplicação
+- `dw_builder.py` — construção do esquema estrela (dimensões + fatos) no schema `dw`
+- `validations.py` — contagens mínimas e integridade de chaves estrangeiras
+
+Orquestrado pela DAG `olist_etl_pipeline` (`pipelines/dags/olist_etl_pipeline_dag.py`) e documentado em [`RUNBOOK_ETL_OLIST.md`](RUNBOOK_ETL_OLIST.md).
+
+### 6. Dashboard (`src/dashboard/`)
+App Streamlit (`app.py` + `tabs/`) lendo o schema `dw` via `src/etl/db.py`, organizado em três abas:
+- **Dicionário de Dados** (`tabs/dictionary_tab.py` + `data_dictionary.py`) — modelo dimensional, descrição de colunas e amostra de 5 linhas por tabela (filtro de seleção).
+- **Análise Exploratória** (`tabs/exploratory_tab.py`) — distribuições, matriz de correlação, comparações entre grupos (categoria, estado).
+- **Dashboard** (`tabs/insights_tab.py`) — receita, categorias, entregas, reviews, geografia e vendedores, cada seção com um insight em linguagem de negócio.
+
 ## 🌐 API REST
 
 ### FastAPI (`src/api/main.py`)
@@ -214,9 +250,11 @@ Notebook completo demonstrando:
 Serviços configurados:
 - **fabricaia-api** (porta 8000)
 - **jupyter** (porta 8888)
+- **airflow-init** (roda `airflow db migrate` e encerra)
 - **airflow-webserver** (porta 8080)
 - **airflow-scheduler**
-- **postgres** (porta 5432)
+- **streamlit** (porta 8501) — dashboard do Data Warehouse Olist
+- **postgres** (porta 5432) — bancos `airflow` (metadata) e `olist_dw` (Data Warehouse)
 
 ## 📋 Makefile - Comandos Úteis
 
@@ -234,6 +272,10 @@ make api               # Iniciar API
 make jupyter           # Iniciar Jupyter
 make airflow-init      # Inicializar Airflow
 make pipeline          # Executar pipeline exemplo
+make ingest            # Baixar dataset Olist do Kaggle (ou pular se já existir)
+make dw-init           # Criar schemas/tabelas do Data Warehouse
+make streamlit         # Iniciar o dashboard
+make etl-test          # Testes unitários do ETL
 ```
 
 ## 🎯 Próximos Passos
@@ -267,5 +309,7 @@ make pipeline          # Executar pipeline exemplo
 
 - `README.md` - Visão geral e guia de uso
 - `DEVELOPMENT.md` - Guia de desenvolvimento
+- `RUNBOOK_END_TO_END.md` - Fluxo de MLOps original do template
+- `RUNBOOK_ETL_OLIST.md` - Fluxo do projeto de ETL (Olist): extract → raw → staging → DW estrela → dashboard
 - `config/config.yaml` - Configurações do projeto
 - Notebooks em `notebooks/` - Exemplos práticos

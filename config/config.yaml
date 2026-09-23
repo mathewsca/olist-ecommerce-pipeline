@@ -56,6 +56,18 @@ LOGGING:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   file: "logs/fabricaia.log"
 
+# Olist Data Warehouse (Postgres) — env vars DW_HOST/DW_PORT/DW_NAME/DW_USER/DW_PASSWORD
+# override these values, same convention as MLFLOW below.
+DATABASE:
+  host: "localhost"
+  port: 5432
+  name: "olist_dw"
+  user: "airflow"
+  password: "airflow"
+  schema_raw: "raw"
+  schema_staging: "staging"
+  schema_dw: "dw"
+
 # MLflow settings (Local SQLite or Remote HTTP Server)
 MLFLOW:
   tracking_uri: "sqlite:///mlflow.db"  # Ex. remoto: "http://seu-servidor-mlflow:5000"

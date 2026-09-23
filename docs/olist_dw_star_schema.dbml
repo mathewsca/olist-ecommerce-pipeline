@@ -1,0 +1,108 @@
+// Olist E-commerce Pipeline — Data Warehouse (star schema)
+// https://dbdiagram.io/d
+// Fonte: Template/sql/dw/create_dw_schema.sql
+
+Table dw.dim_customers {
+  customer_key int [pk, increment]
+  customer_id varchar(64) [unique, not null]
+  customer_unique_id varchar(64)
+  customer_zip_code_prefix varchar(5)
+  customer_city varchar(128)
+  customer_state varchar(2)
+}
+
+Table dw.dim_sellers {
+  seller_key int [pk, increment]
+  seller_id varchar(64) [unique, not null]
+  seller_zip_code_prefix varchar(5)
+  seller_city varchar(128)
+  seller_state varchar(2)
+}
+
+Table dw.dim_products {
+  product_key int [pk, increment]
+  product_id varchar(64) [unique, not null]
+  product_category_name varchar(128)
+  product_category_name_english varchar(128)
+  product_weight_g numeric
+  product_length_cm numeric
+  product_height_cm numeric
+  product_width_cm numeric
+  product_photos_qty numeric
+}
+
+Table dw.dim_geolocation {
+  geo_key int [pk, increment]
+  zip_code_prefix varchar(5) [unique, not null]
+  city varchar(128)
+  state varchar(2)
+  avg_lat numeric
+  avg_lng numeric
+
+  Note: 'Dimensão isolada: nenhuma fact table possui FK física para ela no DDL atual.'
+}
+
+Table dw.dim_date {
+  date_key int [pk, note: 'formato YYYYMMDD']
+  full_date date [unique, not null]
+  year int [not null]
+  quarter int [not null]
+  month int [not null]
+  day int [not null]
+  day_of_week int [not null, note: '0=segunda .. 6=domingo']
+  is_weekend boolean [not null]
+}
+
+Table dw.fact_order_items {
+  order_item_key int [pk, increment]
+  order_id varchar(64) [not null]
+  order_item_id int [not null]
+  customer_key int [ref: > dw.dim_customers.customer_key]
+  seller_key int [ref: > dw.dim_sellers.seller_key]
+  product_key int [ref: > dw.dim_products.product_key]
+  order_purchase_date_key int [ref: > dw.dim_date.date_key]
+  price numeric
+  freight_value numeric
+
+  indexes {
+    (order_id, order_item_id) [unique]
+  }
+}
+
+Table dw.fact_orders {
+  order_key int [pk, increment]
+  order_id varchar(64) [unique, not null]
+  customer_key int [ref: > dw.dim_customers.customer_key]
+  order_status varchar(32)
+  order_purchase_date_key int [ref: > dw.dim_date.date_key]
+  order_delivered_date_key int [ref: > dw.dim_date.date_key]
+  order_estimated_delivery_date_key int [ref: > dw.dim_date.date_key]
+  delivery_time_days numeric
+  delivery_delay_days numeric
+}
+
+Table dw.fact_payments {
+  payment_key int [pk, increment]
+  order_id varchar(64) [not null]
+  payment_sequential int
+  payment_type varchar(32)
+  payment_installments int
+  payment_value numeric
+}
+
+Table dw.fact_reviews {
+  review_key int [pk, increment]
+  review_id varchar(64) [unique, not null]
+  order_id varchar(64) [not null]
+  review_score int
+  review_creation_date_key int [ref: > dw.dim_date.date_key]
+  review_answer_date_key int [ref: > dw.dim_date.date_key]
+  has_comment_title boolean
+  has_comment_message boolean
+}
+
+// Relações lógicas (mesma natural key "order_id"), sem FK física no Postgres.
+// dbdiagram.io aceita refs entre colunas não-PK/unique com "ref:" fora das tabelas.
+Ref: dw.fact_order_items.order_id > dw.fact_orders.order_id
+Ref: dw.fact_payments.order_id > dw.fact_orders.order_id
+Ref: dw.fact_reviews.order_id > dw.fact_orders.order_id

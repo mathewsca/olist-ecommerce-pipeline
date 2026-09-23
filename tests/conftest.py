@@ -15,6 +15,8 @@ def pytest_configure(config):
     This completely mocks MLflow BEFORE any imports happen to prevent hanging.
     """
     # Set environment variable to disable MLflow completely
+    # Never open GUI windows for matplotlib figures during tests.
+    os.environ["MPLBACKEND"] = "Agg"
     os.environ["MLFLOW_DISABLE_TRACKING"] = "true"
     os.environ["MLFLOW_TRACKING_URI"] = ""
 

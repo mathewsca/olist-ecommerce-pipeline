@@ -1,6 +1,6 @@
 # FabricaIA Makefile
 
-.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit mlflow-server mlflow-ui mlflow-stop data pipeline airflow-stop airflow-standalone
+.PHONY: help install test lint format clean docker-build docker-run api jupyter airflow format-check precommit mlflow-server mlflow-ui mlflow-stop data pipeline airflow-stop airflow-standalone ingest dw-init dw-reset streamlit airflow-connections etl-test
 
 help: ## Show this help message
 	@echo "FabricaIA - Available commands:"
@@ -141,6 +141,35 @@ pipeline: ## Run example pipeline (generates sample data if needed)
 		$(MAKE) data; \
 	fi
 	python pipelines/scripts/example_pipeline.py
+
+ingest: ## Download the Olist dataset from Kaggle into data/raw/ (skips if CSVs already present)
+	python scripts/kaggle_ingest.py
+
+dw-init: ## Create the raw/staging/dw schemas and DW tables in Postgres
+	psql "postgresql://$${DW_USER:-airflow}:$${DW_PASSWORD:-airflow}@$${DW_HOST:-localhost}:$${DW_PORT:-5432}/$${DW_NAME:-olist_dw}" \
+		-f sql/raw/create_raw_schema.sql \
+		-f sql/staging/create_staging_schema.sql \
+		-f sql/dw/create_dw_schema.sql
+
+dw-reset: ## Drop and recreate the olist_dw schemas (destructive - local teaching use only)
+	psql "postgresql://$${DW_USER:-airflow}:$${DW_PASSWORD:-airflow}@$${DW_HOST:-localhost}:$${DW_PORT:-5432}/$${DW_NAME:-olist_dw}" \
+		-c "DROP SCHEMA IF EXISTS dw CASCADE; DROP SCHEMA IF EXISTS staging CASCADE; DROP SCHEMA IF EXISTS raw CASCADE;"
+	$(MAKE) dw-init
+
+streamlit: ## Start the Streamlit dashboard
+	streamlit run src/dashboard/app.py
+
+airflow-connections: ## Register the olist_dw_postgres Airflow connection
+	@$(AIRFLOW) connections add olist_dw_postgres \
+		--conn-type postgres \
+		--conn-host $${DW_HOST:-localhost} \
+		--conn-schema $${DW_NAME:-olist_dw} \
+		--conn-login $${DW_USER:-airflow} \
+		--conn-password $${DW_PASSWORD:-airflow} \
+		--conn-port $${DW_PORT:-5432} 2>/dev/null || echo "Conexão 'olist_dw_postgres' já existe."
+
+etl-test: ## Run ETL unit tests with coverage
+	pytest tests/unit/test_kaggle_ingestion.py tests/unit/test_staging_transform.py tests/unit/test_db_config.py -v --cov=src/etl --cov-report=term-missing
 
 create-project: ## Create new project using cookiecutter
 	python create_project.py

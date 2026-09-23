@@ -18,55 +18,177 @@ services:
     build: .
     ports:
       - "8888:8888"
+    depends_on:
+      - postgres
     volumes:
       - ./notebooks:/app/notebooks
+      - ./sql:/app/sql
       - ./data:/app/data
       - ./models:/app/models
       - ./src:/app/src
+      - ./config:/app/config
     environment:
       - PYTHONPATH=/app
       - JUPYTER_ENABLE_LAB=yes
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
+      - KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}
+      - DW_HOST=${DW_HOST:-postgres}
+      - DW_PORT=${DW_PORT:-5432}
+      - DW_NAME=${DW_NAME:-olist_dw}
+      - DW_USER=${DW_USER:-airflow}
+      - DW_PASSWORD=${DW_PASSWORD:-airflow}
     command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+
+  airflow-init:
+    build: .
+    depends_on:
+      - postgres
+    volumes:
+      - ./pipelines:/opt/airflow/pipelines
+      - ./sql:/opt/airflow/sql
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - ./src:/opt/airflow/src
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_JWT_SECRET:-}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY:-}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - PYTHONPATH=/opt/airflow
+    command: airflow db migrate
+    restart: "no"
 
   airflow-webserver:
     build: .
     ports:
       - "8080:8080"
+    depends_on:
+      - postgres
+      - airflow-init
     volumes:
       - ./pipelines:/opt/airflow/pipelines
+      - ./sql:/opt/airflow/sql
       - ./data:/opt/airflow/data
       - ./models:/opt/airflow/models
       - ./src:/opt/airflow/src
       - ./logs:/opt/airflow/logs
     environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_JWT_SECRET:-}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY:-}
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/pipelines/dags
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      # Connection to Airflow's OWN metadata DB, exposed to task subprocesses via
+      # AIRFLOW_CONN_* (read by the EnvironmentVariablesBackend, which - unlike the ORM -
+      # tasks are allowed to use). The clear_logs_and_metadata maintenance DAG needs this
+      # to purge/vacuum old rows: Airflow 3 tasks cannot touch airflow.settings.engine directly.
+      - AIRFLOW_CONN_AIRFLOW_METADATA_DB=postgresql://airflow:airflow@postgres:5432/airflow
+      # Airflow 3: task subprocesses talk to the api-server over HTTP (Task
+      # Execution API) - without this they default to localhost, which is
+      # wrong across containers, and every task fails silently.
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
       - PYTHONPATH=/opt/airflow
-    command: airflow webserver --port 8080
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
+      - KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}
+      - DW_HOST=${DW_HOST:-postgres}
+      - DW_PORT=${DW_PORT:-5432}
+      - DW_NAME=${DW_NAME:-olist_dw}
+      - DW_USER=${DW_USER:-airflow}
+      - DW_PASSWORD=${DW_PASSWORD:-airflow}
+    command: sh -c "airflow api-server --port 8080 || airflow webserver --port 8080"
 
   airflow-scheduler:
     build: .
+    depends_on:
+      - postgres
+      - airflow-init
     volumes:
       - ./pipelines:/opt/airflow/pipelines
+      - ./sql:/opt/airflow/sql
       - ./data:/opt/airflow/data
       - ./models:/opt/airflow/models
       - ./src:/opt/airflow/src
       - ./logs:/opt/airflow/logs
     environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_JWT_SECRET:-}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY:-}
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/pipelines/dags
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW_CONN_AIRFLOW_METADATA_DB=postgresql://airflow:airflow@postgres:5432/airflow
       - PYTHONPATH=/opt/airflow
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME:-}
+      - KAGGLE_KEY=${KAGGLE_KEY:-}
+      - KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}
+      - DW_HOST=${DW_HOST:-postgres}
+      - DW_PORT=${DW_PORT:-5432}
+      - DW_NAME=${DW_NAME:-olist_dw}
+      - DW_USER=${DW_USER:-airflow}
+      - DW_PASSWORD=${DW_PASSWORD:-airflow}
     command: airflow scheduler
+
+  airflow-dag-processor:
+    build: .
+    depends_on:
+      - postgres
+      - airflow-init
+    volumes:
+      - ./pipelines:/opt/airflow/pipelines
+      - ./sql:/opt/airflow/sql
+      - ./data:/opt/airflow/data
+      - ./models:/opt/airflow/models
+      - ./src:/opt/airflow/src
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW_JWT_SECRET:-}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW_API_SECRET_KEY:-}
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/pipelines/dags
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_CONN_AIRFLOW_METADATA_DB=postgresql://airflow:airflow@postgres:5432/airflow
+      - PYTHONPATH=/opt/airflow
+    # Airflow 3 splits DAG file parsing out of the scheduler into its own
+    # component; on Airflow 2.x `dag-processor` doesn't exist, so fall back
+    # to a no-op sleep (the scheduler already parses DAGs itself there).
+    command: sh -c "airflow dag-processor || sleep infinity"
+
+  streamlit:
+    build: .
+    ports:
+      - "8501:8501"
+    depends_on:
+      - postgres
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+      - DW_HOST=${DW_HOST:-postgres}
+      - DW_PORT=${DW_PORT:-5432}
+      - DW_NAME=${DW_NAME:-olist_dw}
+      - DW_USER=${DW_USER:-airflow}
+      - DW_PASSWORD=${DW_PASSWORD:-airflow}
+    command: streamlit run src/dashboard/app.py --server.port=8501 --server.address=0.0.0.0
 
   postgres:
     image: postgres:13
     environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
+      - POSTGRES_USER=${POSTGRES_USER:-airflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-airflow}
+      - POSTGRES_DB=${POSTGRES_DB:-airflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
 
